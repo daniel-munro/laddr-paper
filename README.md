@@ -1,2 +1,2 @@
 # latent-rna-figures
- Code to generate figures for the latent RNA phenotyping paper
+ Code to generate stats, figures, and tables for the latent RNA phenotyping paper
