@@ -1,17 +1,5 @@
 library(tidyverse)
 
-load_qtls <- function(version) {
-    fname <- str_glue("data/residual/{version}.cis_independent_qtl.txt.gz")
-    df <- read_tsv(fname, col_types = "c-----c---------dc-i") |>
-        rename(gene_id = group_id)
-    if (version == "latent-full") {
-        mutate(df, modality = "latent_full", .before = phenotype_id)
-    } else {
-        separate_wider_delim(df, phenotype_id, ":", names = c("modality", "phenotype_id"),
-                             too_many = "merge")
-    }
-}
-
 modalities <- c(
     expression = "Expression",
     isoforms = "Isoform ratio",
@@ -36,13 +24,12 @@ modality_colors <- c(
 )
 
 versions <- c(
-    `all-pantry` = "Explicit",
-    `all-residual` = "Explicit + Latent (residual)",
-    `latent-full` = "Latent (full)"
+    `residual-cross_pantry` = "Explicit",
+    `residual-cross_latent` = "Explicit + Latent (residual)",
+    `full-latent` = "Latent (full)"
 )
 
-qtls <- tibble(version = c("all-pantry", "all-residual", "latent-full")) |>
-    reframe(load_qtls(version), .by = version) |>
+qtls <- read_tsv("data/processed/geuvadis.qtls.tsv.gz", col_types = "ccccdci") |>
     mutate(modality = factor(modalities[modality], levels = names(modality_colors)),
            version = factor(versions[version], levels = versions))
 

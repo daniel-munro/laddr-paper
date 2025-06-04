@@ -37,7 +37,7 @@ latent_colors <- c(
     Null = "white"
 )
 
-corrs_max <- read_tsv("analysis/residual/latent_explicit_corrs.tsv.gz", col_types = "ccccd") |>
+corrs_max <- read_tsv("data/processed/latent_explicit_corrs.tsv.gz", col_types = "ccccd") |>
     separate(pheno, c("modality", "pheno"), sep = ":", extra = "merge") |>
     mutate(modality = factor(modalities[modality], levels = modalities),
            PC = fct_inorder(PC),
@@ -126,7 +126,7 @@ ggsave("figures/figure_explicit_corr_mod3.png", width = 5, height = 3, device = 
 ## Calculate max r2 per modality ##
 ###################################
 
-corrs_max_mod2 <- read_tsv("analysis/residual/latent_explicit_corrs_mod.tsv.gz", col_types = "cccd") |>
+corrs_max_mod2 <- read_tsv("data/processed/latent_explicit_corrs_mod.tsv.gz", col_types = "cccd") |>
     separate(pheno, c("modality", "pheno"), sep = ":", extra = "merge") |>
     mutate(modality = factor(modalities[modality], levels = modalities),
            PC = fct_inorder(PC),

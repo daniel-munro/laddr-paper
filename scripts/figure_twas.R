@@ -26,9 +26,9 @@ categories <- read_tsv("data/pantry/geuvadis/twas/gwas_metadata.txt",
     mutate(Category = fct_lump_min(Category, 10)) |>
     deframe()
 
-twas <- read_tsv("data/twas/twas_hits.Geuvadis.latent_full.tsv",
+twas <- read_tsv("data/twas/twas_hits.geuvadis-full-Geuvadis.tsv",
                  col_types = "cc---d-----------ddddddd") |>
-    separate_wider_delim(ID, ":", names = c("gene_id", "PC"), cols_remove = FALSE) |>
+    separate_wider_delim(ID, "__", names = c("gene_id", "PC"), cols_remove = FALSE) |>
     rename(trait = TRAIT)
 
 twas_pantry <- read_tsv("data/pantry/processed/geuvadis.twas.tsv.gz", col_types = "ccccdcdd") |>
