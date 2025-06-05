@@ -129,7 +129,17 @@ write_tsv(qtls_gtex_cross, "data/processed/gtex-residual-cross.qtls.tsv.gz")
 ## TWAS ##
 ##########
 
-twas <- tibble(tissue = tissues_gtex5) |>
+twas_geuvadis <- read_tsv(
+  str_glue("data/twas/twas_hits.geuvadis-full-Geuvadis.tsv"),
+  col_types = "cccccccccccccccccccccccc"
+) |>
+  mutate(gene_id = str_split_i(ID, "__", i = 1)) |>
+  select(trait = TRAIT, gene_id, phenotype_id = ID, hsq = HSQ, twas_z = TWAS.Z, twas_p = TWAS.P, coloc_pp = COLOC.PP4) |>
+  arrange(trait, gene_id, phenotype_id)
+
+write_tsv(twas_geuvadis, "data/processed/geuvadis.twas_hits.tsv.gz")
+
+twas_gtex5 <- tibble(tissue = tissues_gtex5) |>
     reframe(
         read_tsv(
             str_glue("data/twas/twas_hits.gtex5-full-{tissue}.tsv"),
@@ -137,8 +147,8 @@ twas <- tibble(tissue = tissues_gtex5) |>
         ),
         .by = tissue
     ) |>
-    mutate(gene_id = str_replace(ID, ":.*$", "")) |>
-    select(tissue, trait = TRAIT, gene_id, phenotype_id = ID, HSQ, MODEL, TWAS.Z, TWAS.P, COLOC.PP0, COLOC.PP1, COLOC.PP2, COLOC.PP3, COLOC.PP4) |>
+    mutate(gene_id = str_split_i(ID, "__", i = 1)) |>
+    select(tissue, trait = TRAIT, gene_id, phenotype_id = ID, hsq = HSQ, twas_z = TWAS.Z, twas_p = TWAS.P, coloc_pp = COLOC.PP4) |>
     arrange(tissue, trait, gene_id, phenotype_id)
 
-write_tsv(twas, "data/processed/gtex5.twas_hits.tsv.gz")
+write_tsv(twas_gtex5, "data/processed/gtex5.twas_hits.tsv.gz")
