@@ -125,6 +125,33 @@ qtls_gtex_cross <- tibble(tissue = tissues_gtex) |>
 
 write_tsv(qtls_gtex_cross, "data/processed/gtex-residual-cross.qtls.tsv.gz")
 
+qtls_prune <- crossing(
+  map_group = c("latent", "pantry", "expression", "isoforms", "splicing", "alt_TSS", "alt_polyA", "stability"),
+  pruning = c(0, 20, 40, 60, 80, 100)
+) |>
+  reframe(
+    {
+      fname <- str_glue("data/prune_anno/{map_group}-{pruning}.cis_independent_qtl.txt.gz")
+      if (map_group %in% c("expression", "stability")) {
+        df <- read_tsv(fname, col_types = "c-----c---------di")
+      } else {
+        df <- read_tsv(fname, col_types = "c-----c---------dc-i")
+      }
+      if (map_group == "pantry") {
+        separate_wider_delim(df, phenotype_id, ":", names = c("modality", "phenotype_id"),
+                             too_many = "merge")
+      } else {
+        df |>
+          mutate(modality = map_group, .before = phenotype_id)
+      }
+    },
+    .by = c(map_group, pruning)
+  ) |>
+  mutate(gene_id = if_else(is.na(group_id), phenotype_id, group_id)) |>
+  select(map_group, pruning, modality, gene_id, rank, phenotype_id, variant_id, pval_beta)
+
+write_tsv(qtls_prune, "data/processed/prune-BRNCTXB.qtls.tsv.gz")
+
 ##########
 ## TWAS ##
 ##########

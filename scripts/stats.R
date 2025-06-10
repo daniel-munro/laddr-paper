@@ -185,3 +185,37 @@ bind_cols(
     count(name = "n_explicit"),
 ) |>
   mutate(percent_inc = (n_latent / n_explicit - 1) * 100)
+
+###
+
+qtls_gtex5_full <- read_tsv("data/processed/gtex5-full.qtls.tsv.gz", col_types = "cciccd")
+
+qtls_gtex_full <- read_tsv("data/processed/gtex-full.qtls.tsv.gz", col_types = "cciccd")
+
+qtl_counts <- full_join(
+  qtls_gtex5_full |>
+    count(tissue, name = "n_gtex5"),
+  qtls_gtex_full |>
+    count(tissue, name = "n_gtex"),
+  by = "tissue",
+  relationship = "one-to-one"
+) |>
+  full_join(
+    qtls_gtextcga_full |>
+      count(tissue, name = "n_gtextcga"),
+    by = "tissue",
+    relationship = "one-to-one"
+  ) |>
+  mutate(
+    gtex5_gtex_pct_inc = (n_gtex / n_gtex5 - 1) * 100,
+    gtex_gtextcga_pct_inc = (n_gtextcga / n_gtex - 1) * 100,
+  )
+
+# Surprisingly, using 54 tissues to fit models increased the number of independent xQTLs per tissue by only 2.3% on average (Figure 4a).
+# Using 54 tissues plus 33 cancer datasets increased xQTLs by 3.0% on average compared to 54 tissues only (Figure 4b).
+
+qtl_counts |>
+  summarise(
+    gtex5_gtex_pct_inc_mean = mean(gtex5_gtex_pct_inc),
+    gtex_gtextcga_pct_inc_mean = mean(gtex_gtextcga_pct_inc),
+  )
