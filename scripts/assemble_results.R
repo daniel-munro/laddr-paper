@@ -3,6 +3,8 @@ library(tidyverse)
 tissues_gtex5 <- read_lines("data/info/tissues.gtex5.txt")
 tissues_gtex <- read_lines("data/info/tissues.gtex.txt")
 
+modalities <- c("expression", "isoforms", "splicing", "alt_TSS", "alt_polyA", "stability")
+
 ###########
 ## Genes ##
 ###########
@@ -125,17 +127,21 @@ qtls_gtex_cross <- tibble(tissue = tissues_gtex) |>
 
 write_tsv(qtls_gtex_cross, "data/processed/gtex-residual-cross.qtls.tsv.gz")
 
+##################
+## QTLs special ##
+##################
+
 qtls_prune <- crossing(
-  map_group = c("latent", "pantry", "expression", "isoforms", "splicing", "alt_TSS", "alt_polyA", "stability"),
+  map_group = c("latent", "pantry", modalities),
   pruning = c(0, 20, 40, 60, 80, 100)
 ) |>
   reframe(
     {
       fname <- str_glue("data/prune_anno/{map_group}-{pruning}.cis_independent_qtl.txt.gz")
       if (map_group %in% c("expression", "stability")) {
-        df <- read_tsv(fname, col_types = "c-----c---------di")
+        df <- read_tsv(fname, col_types = "c-----c---------ci")
       } else {
-        df <- read_tsv(fname, col_types = "c-----c---------dc-i")
+        df <- read_tsv(fname, col_types = "c-----c---------cc-i")
       }
       if (map_group == "pantry") {
         separate_wider_delim(df, phenotype_id, ":", names = c("modality", "phenotype_id"),
@@ -151,6 +157,27 @@ qtls_prune <- crossing(
   select(map_group, pruning, modality, gene_id, rank, phenotype_id, variant_id, pval_beta)
 
 write_tsv(qtls_prune, "data/processed/prune-BRNCTXB.qtls.tsv.gz")
+
+qtls_held_out <- bind_rows(
+  qtls_geuvadis |>
+    filter(version == "residual-cross_latent") |>
+    select(-version) |>
+    mutate(held_out = "none", .before = 1),
+  tibble(held_out = modalities) |>
+    reframe(
+      read_tsv(
+        str_glue("data/held_out/cross-no_{held_out}.cis_independent_qtl.txt.gz"),
+        col_types = "c-----c---------cc-i"
+      ) |>
+        rename(gene_id = group_id) |>
+        separate_wider_delim(
+          phenotype_id, ":", names = c("modality", "phenotype_id"), too_many = "merge"
+        ),
+      .by = held_out
+    )
+)
+
+write_tsv(qtls_held_out, "data/processed/held_out-geuvadis.qtls.tsv.gz")
 
 ##########
 ## TWAS ##
