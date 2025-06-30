@@ -164,12 +164,14 @@ df |>
   theme(
     axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
     legend.position = "inside",
-    legend.position.inside = c(0.32, 0.75),
-    legend.key.size = unit(10, "pt"),
+    legend.position.inside = c(0.32, 0.72),
+    legend.key.size = unit(9, "pt"),
+    legend.text = element_text(size = 7),
+    legend.title = element_text(size = 10),
     panel.grid = element_blank(),
   ) +
   labs(fill = "Modality") +
   xlab("Trait category") +
   ylab("TWAS hits")
 
-ggsave("figures/figure3/figure3d.png", width = 4.5, height = 4.5, device = png)
+ggsave("figures/figure3/figure3d.png", width = 4, height = 4, device = png)

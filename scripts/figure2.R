@@ -5,6 +5,73 @@ library(patchwork)
 
 ## Panel a: Correlation heatmap example
 
+gene <- "ENSG00000170291"
+gene_names <- read_tsv("data/processed/protein_coding_genes.tsv", col_types = "cc----") |>
+  deframe()
+gene_name <- gene_names[gene]
+
+modalities <- c(
+  expression = "Expression",
+  isoforms = "Isoform ratio",
+  splicing = "Intron excision",
+  alt_TSS = "Alt. TSS",
+  alt_polyA = "Alt. polyA",
+  stability = "RNA stability"
+)
+
+phenos_latent <- read_tsv(
+  "data/phenos/geuvadis-full/Geuvadis-latent.bed.gz",
+  col_types = cols(`#chr` = "-", start = "-", end = "-", phenotype_id = "c", .default = "d")
+) |>
+  separate_wider_delim(phenotype_id, "__", names = c("gene_id", "PC")) |>
+  filter(gene_id == gene) |>
+  select(-gene_id) |>
+  column_to_rownames("PC")
+
+phenos_pantry <- tibble(modality = names(modalities)) |>
+  reframe(
+    read_tsv(
+      str_glue("data/pantry_phenos/geuvadis/{modality}.bed.gz"),
+      col_types = cols(`#chr` = "-", start = "-", end = "-", phenotype_id = "c", .default = "d")
+    ) |>
+      mutate(gene_id = str_replace(phenotype_id, "__.+", ""), .before = 1) |>
+      filter(gene_id == gene) |>
+      select(-gene_id),
+    .by = modality
+  ) |>
+  mutate(
+    phenotype_id = if (n() == 1) {
+      modalities[modality]
+    } else {
+      str_glue("{modalities[modality]} {seq_len(n())}")
+    }
+    .by = modality
+  ) |>
+  select(-modality) |>
+  column_to_rownames("phenotype_id")
+
+stopifnot(identical(colnames(phenos_latent), colnames(phenos_pantry)))
+
+cor(t(phenos_latent), t(phenos_pantry), method = "spearman") |>
+  as_tibble(rownames = "PC") |>
+  pivot_longer(-PC, names_to = "pantry_pheno", values_to = "rho") |>
+  mutate(PC = fct_inorder(PC) |> fct_rev(),
+         pantry_pheno = fct_inorder(pantry_pheno)) |>
+  ggplot(aes(x = pantry_pheno, y = PC, fill = rho)) +
+  geom_tile() +
+  scale_x_discrete(position = "top") +
+  scale_fill_gradient2() +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(hjust = 0, angle = 60, color = "black"),
+    axis.text.y = element_text(color = "black"),
+  ) +
+  xlab(str_glue("Explicit phenotypes for {gene_name}")) +
+  ylab(str_glue("Latent phenotypes for {gene_name}")) +
+  labs(fill = expression("Corr. "*(rho)))
+
+ggsave("figures/figure2/figure2a.png", width = 6, height = 4, device = png)
+
 ## Panel b: Latent phenotype cis-heritability
 
 modalities <- c(
@@ -31,8 +98,8 @@ p1 <- hsq_latent |>
            fct_lump_n(n = 10, other_level = "11+")) |>
   ggplot(aes(x = PC, y = hsq)) +
   geom_boxplot() +
-  scale_y_log10(minor_breaks = c(0.01, 0.02, 0.03)) +
-  expand_limits(y = 0.01) +
+  scale_y_log10(expand = c(0, 0), minor_breaks = c(0.01, 0.02, 0.03)) +
+  expand_limits(y = c(0.009, 1)) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
@@ -45,8 +112,8 @@ p1 <- hsq_latent |>
 p2 <- hsq_pantry |>
   ggplot(aes(x = modality, y = hsq)) +
   geom_boxplot() +
-  scale_y_log10() +
-  expand_limits(y = 0.01) +
+  scale_y_log10(expand = c(0, 0)) +
+  expand_limits(y = c(0.009, 1)) +
   theme_bw() +
   theme(
     axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45, color = "black"),
@@ -61,4 +128,20 @@ p2 <- hsq_pantry |>
 
 p1 + p2 + plot_layout(widths = c(11, 6))
 
-ggsave("figures/figure2/figure2b.png", width = 5, height = 4, device = png)
+ggsave("figures/figure2/figure2c.png", width = 5, height = 4, device = png)
+
+hsq_latent |>
+  count(PC) |>
+  ggplot(aes(x = PC, y = n / 1000)) +
+  geom_col(width = 0.7, fill = "black") +
+  scale_x_continuous(expand = c(0, 0.2)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  expand_limits(y = 6.2) +
+  theme_bw() +
+  theme(
+    axis.text = element_text(color = "black"),
+    panel.grid = element_blank(),
+  ) +
+  ylab(expression("Genes with significant cis-"*h^2*" (×1000)"))
+
+ggsave("figures/figure2/figure2b.png", width = 2, height = 3, device = png)

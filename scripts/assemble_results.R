@@ -179,6 +179,20 @@ qtls_held_out <- bind_rows(
 
 write_tsv(qtls_held_out, "data/processed/held_out-geuvadis.qtls.tsv.gz")
 
+qtls_seqsim <- tibble(
+  reads = c("pe-50bp-100pct", "pe-75bp-100pct", "se-50bp-100pct", "se-75bp-100pct", "se1-50bp-100pct", "se1-75bp-100pct", "se2-50bp-100pct", "se2-75bp-100pct", "pe-75bp-50pct", "pe-75bp-25pct")
+) |>
+  reframe(
+    read_tsv(
+      str_glue("data/seqsim/{reads}.cis_independent_qtl.txt.gz"),
+      col_types = "c-----c---------cc-i"
+    ),
+    .by = reads
+  ) |>
+  rename(gene_id = group_id)
+
+write_tsv(qtls_seqsim, "data/processed/seqsim.qtls.tsv.gz")
+
 ##########
 ## TWAS ##
 ##########
