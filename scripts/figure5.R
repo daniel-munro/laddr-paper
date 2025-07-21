@@ -121,7 +121,7 @@ qtls_prune |>
   facet_wrap(~map_group, scales = "free_y") +
   geom_col(width = 0.8) +
   geom_point(aes(y = ylim, fill = NULL), data = ylims, color = "white", show.legend = FALSE) +
-  scale_y_continuous(breaks = c(0, 5, 10, 15), expand = c(0, 0)) +
+  scale_y_continuous(breaks = c(0, 5, 10, 15, 20), expand = c(0, 0)) +
   scale_fill_manual(values = modality_colors) +
   theme_bw() +
   theme(

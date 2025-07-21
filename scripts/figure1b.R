@@ -46,12 +46,18 @@ load_weights <- function(filename) {
     mutate(pos = as.integer(pos))
 }
 
-gene_id <- "ENSG00000170291"
-PC <- "PC2"
-trait <- "UKB_20022_Birth_weight"
-window <- 0.3 # Mb up and downstream of TSS to show TWAS weights and GWAS sumstats
+## ELP5
+# gene_id <- "ENSG00000170291"
+# PC <- "PC2"
+# trait <- "UKB_20022_Birth_weight"
+# window <- 0.3 # Mb up and downstream of TSS to show TWAS weights and GWAS sumstats
+## YPEL3
+gene_id <- "ENSG00000090238"
+PC <- "PC4"
+window <- 0.5 # Mb up and downstream of TSS to show TWAS weights and GWAS sumstats
+trait <- "Astle_et_al_2016_Eosinophil_counts"
 
-gene_names <- read_tsv("data/processed/protein_coding_genes.tsv", col_types = "cc----") |>
+gene_names <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cc-----") |>
   deframe()
 gene_name <- gene_names[gene_id]
 

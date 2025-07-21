@@ -12,11 +12,11 @@ modalities <- c("expression", "isoforms", "splicing", "alt_TSS", "alt_polyA", "s
 genes <- rtracklayer::import("data/ref/Homo_sapiens.GRCh38.113.chr.gtf.gz") |>
     as_tibble() |>
     filter(type == "gene",
-           gene_biotype == "protein_coding") |>
+           gene_biotype %in% c("protein_coding", "lncRNA")) |>
     mutate(chrom = str_c("chr", seqnames)) |>
-    select(gene_id, gene_name, chrom, start, end, strand)
+    select(gene_id, gene_name, gene_biotype, chrom, start, end, strand)
 
-write_tsv(genes, "data/processed/protein_coding_genes.tsv")
+write_tsv(genes, "data/processed/pcg_and_lncrna.tsv")
 
 ##########
 ## QTLs ##
@@ -48,7 +48,8 @@ qtls_geuvadis <- bind_rows(
     rename(gene_id = group_id) |>
     mutate(modality = "latent_full", .before = phenotype_id) |>
     mutate(version = "full-latent", .before = 1),
-)
+) |>
+  filter(gene_id %in% genes$gene_id)
 
 write_tsv(qtls_geuvadis, "data/processed/geuvadis.qtls.tsv.gz")
 
@@ -197,7 +198,7 @@ write_tsv(qtls_seqsim, "data/processed/seqsim.qtls.tsv.gz")
 ## TWAS ##
 ##########
 
-twas_geuvadis <- read_tsv(
+twas_geuv_full <- read_tsv(
   str_glue("data/twas/twas_hits.geuvadis-full-Geuvadis.tsv"),
   col_types = "cccccccccccccccccccccccc"
 ) |>
@@ -205,12 +206,12 @@ twas_geuvadis <- read_tsv(
   select(trait = TRAIT, gene_id, phenotype_id = ID, hsq = HSQ, twas_z = TWAS.Z, twas_p = TWAS.P, coloc_pp = COLOC.PP4) |>
   arrange(trait, gene_id, phenotype_id)
 
-write_tsv(twas_geuvadis, "data/processed/geuvadis.twas_hits.tsv.gz")
+write_tsv(twas_geuv_full, "data/processed/geuvadis-full.twas_hits.tsv.gz")
 
-twas_gtex5 <- tibble(tissue = tissues_gtex5) |>
+twas_gtextcga_full <- tibble(tissue = tissues_gtex5) |>
     reframe(
         read_tsv(
-            str_glue("data/twas/twas_hits.gtex5-full-{tissue}.tsv"),
+            str_glue("data/twas/twas_hits.gtextcga-full-{tissue}.tsv"),
             col_types = "cccccccccccccccccccccccc"
         ),
         .by = tissue
@@ -219,4 +220,4 @@ twas_gtex5 <- tibble(tissue = tissues_gtex5) |>
     select(tissue, trait = TRAIT, gene_id, phenotype_id = ID, hsq = HSQ, twas_z = TWAS.Z, twas_p = TWAS.P, coloc_pp = COLOC.PP4) |>
     arrange(tissue, trait, gene_id, phenotype_id)
 
-write_tsv(twas_gtex5, "data/processed/gtex5.twas_hits.tsv.gz")
+write_tsv(twas_gtextcga_full, "data/processed/gtextcga-full.twas_hits.tsv.gz")

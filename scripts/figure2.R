@@ -5,8 +5,9 @@ library(patchwork)
 
 ## Panel a: Correlation heatmap example
 
-gene <- "ENSG00000170291"
-gene_names <- read_tsv("data/processed/protein_coding_genes.tsv", col_types = "cc----") |>
+# gene <- "ENSG00000170291"  # ELP5
+gene <- "ENSG00000090238"  # YPEL3
+gene_names <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cc-----") |>
   deframe()
 gene_name <- gene_names[gene]
 
@@ -44,7 +45,7 @@ phenos_pantry <- tibble(modality = names(modalities)) |>
       modalities[modality]
     } else {
       str_glue("{modalities[modality]} {seq_len(n())}")
-    }
+    },
     .by = modality
   ) |>
   select(-modality) |>
@@ -59,18 +60,20 @@ cor(t(phenos_latent), t(phenos_pantry), method = "spearman") |>
          pantry_pheno = fct_inorder(pantry_pheno)) |>
   ggplot(aes(x = pantry_pheno, y = PC, fill = rho)) +
   geom_tile() +
+  coord_fixed(expand = 0) +
   scale_x_discrete(position = "top") +
   scale_fill_gradient2() +
   theme_bw() +
   theme(
     axis.text.x = element_text(hjust = 0, angle = 60, color = "black"),
     axis.text.y = element_text(color = "black"),
+    panel.grid = element_blank(),
   ) +
   xlab(str_glue("Explicit phenotypes for {gene_name}")) +
   ylab(str_glue("Latent phenotypes for {gene_name}")) +
   labs(fill = expression("Corr. "*(rho)))
 
-ggsave("figures/figure2/figure2a.png", width = 6, height = 4, device = png)
+ggsave("figures/figure2/figure2a.png", width = 4.5, height = 4, device = png)
 
 ## Panel b: Latent phenotype cis-heritability
 
@@ -99,7 +102,7 @@ p1 <- hsq_latent |>
   ggplot(aes(x = PC, y = hsq)) +
   geom_boxplot() +
   scale_y_log10(expand = c(0, 0), minor_breaks = c(0.01, 0.02, 0.03)) +
-  expand_limits(y = c(0.009, 1)) +
+  expand_limits(y = c(0.0099, 1.01)) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
@@ -113,7 +116,7 @@ p2 <- hsq_pantry |>
   ggplot(aes(x = modality, y = hsq)) +
   geom_boxplot() +
   scale_y_log10(expand = c(0, 0)) +
-  expand_limits(y = c(0.009, 1)) +
+  expand_limits(y = c(0.0099, 1.01)) +
   theme_bw() +
   theme(
     axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45, color = "black"),
@@ -136,7 +139,7 @@ hsq_latent |>
   geom_col(width = 0.7, fill = "black") +
   scale_x_continuous(expand = c(0, 0.2)) +
   scale_y_continuous(expand = c(0, 0)) +
-  expand_limits(y = 6.2) +
+  expand_limits(y = 10.4) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),

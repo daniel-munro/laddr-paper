@@ -30,7 +30,7 @@ covg |>
         axis.text = element_blank(),
         plot.margin = margin(0, 0, 0, 0),
     )
-ggsave("figures/figure1/figure1_part1.png", width = 3, height = 0.7)
+ggsave("figures/figure1/figure1a_part1.png", width = 3, height = 0.7)
 
 # ## Make multiple samples
 # mov_av <- function(x, n = 2) { stats::filter(x, rep(1 / n, n), sides = 2) }
@@ -50,7 +50,7 @@ ggsave("figures/figure1/figure1_part1.png", width = 3, height = 0.7)
 #             axis.text = element_blank(),
 #             plot.margin = margin(0, 0, 0, 0),
 #         )
-#     ggsave(str_glue("figures/figure1/figure1_part1_{i}.png"), width = 3, height = 0.7)
+#     ggsave(str_glue("figures/figure1/figure1a_part1_{i}.png"), width = 3, height = 0.7)
 #     
 # }
 
@@ -70,7 +70,7 @@ covg |>
         axis.text = element_blank(),
         plot.margin = margin(0, 0, 0, 0),
     )
-ggsave("figures/figure1/figure1_diff.png", width = 3, height = 0.7)
+ggsave("figures/figure1/figure1a_diff.png", width = 3, height = 0.7)
 
 ##########
 ## Bins ##
@@ -99,7 +99,7 @@ bins |>
         axis.text = element_blank(),
         plot.margin = margin(0, 0, 0, 0),
     )
-ggsave("figures/figure1/figure1_part2.png", width = 4, height = 0.2)
+ggsave("figures/figure1/figure1a_part2.png", width = 4, height = 0.2)
 
 #####################
 ## Binned coverage ##
@@ -123,4 +123,4 @@ covg |>
     ) +
     xlab(NULL) +
     ylab(NULL)
-ggsave("figures/figure1/figure1_part3.png", width = 3, height = 0.7)
+ggsave("figures/figure1/figure1a_part3.png", width = 3, height = 0.7)

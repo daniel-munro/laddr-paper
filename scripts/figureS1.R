@@ -22,7 +22,7 @@ modality_colors <- c(
   `Latent (residual)` = "#1ce6df"
 )
 
-genes <- read_tsv("data/processed/protein_coding_genes.tsv", col_types = "c-ciic") |>
+genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-cciic") |>
   mutate(TSS = if_else(strand == "-", end, start),
          TES = if_else(strand == "-", start, end)) |>
   select(gene_id, chrom, TSS, TES)
@@ -63,7 +63,7 @@ df <- qtls_pos |>
 
 ggplot(df, aes(x = rel_pos_gene, fill = modality)) +
   facet_grid(rows = vars(modality), scales = "free_y", drop = TRUE) +
-  geom_histogram(bins = 60, show.legend = FALSE) +
+  geom_histogram(bins = 80, show.legend = FALSE) +
   scale_fill_manual(values = modality_colors) +
   scale_x_continuous(expand = c(0, 0), breaks = c(0, 1),
                      labels = c("Gene start", "Gene end")) +

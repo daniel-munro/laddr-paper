@@ -8,33 +8,22 @@ qtls_gtextcga_full <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_t
 
 qtls_pantry <- read_tsv("data/pantry/processed/gtex.comb.qtls.tsv.gz", col_types = "ccicccid")
 
-pantry_pcg <- rtracklayer::import("data/pantry/Homo_sapiens.GRCh38.106.gtf.gz") |>
-  as_tibble() |>
-  filter(type == "gene",
-         gene_biotype == "protein_coding")
-
-pcg_shared <- read_tsv("data/processed/protein_coding_genes.tsv", col_types = "ccciic") |>
-  filter(gene_id %in% pantry_pcg$gene_id)
-
-qtls_per_gene <- bind_rows(
+qtls <- bind_rows(
   qtls_gtextcga_full |>
-    filter(gene_id %in% pcg_shared$gene_id) |>
     mutate(type = "Latent"),
   qtls_pantry |>
-    filter(gene_id %in% pcg_shared$gene_id) |>
     mutate(type = "Explicit")
 ) |>
-  summarise(qtls_per_gene = n() / nrow(pcg_shared),
-            .by = c(type, tissue)) |>
-  arrange(desc(type), desc(qtls_per_gene)) |>
+  count(type, tissue) |>
+  arrange(desc(type), desc(n)) |>
   mutate(tissue = fct_inorder(tissue),
          type = fct_inorder(type) |> fct_rev())
 
-ggplot(qtls_per_gene, aes(x = tissue, y = qtls_per_gene, fill = type)) +
+ggplot(qtls, aes(x = tissue, y = n / 1000, fill = type)) +
   geom_col(position = "dodge") +
   scale_y_continuous(expand = c(0, 0)) +
   scale_fill_manual(values = c("coral", "#13918d")) +
-  expand_limits(y = max(qtls_per_gene$qtls_per_gene * 1.03)) +
+  expand_limits(y = max(qtls$n * 1.03 / 1000)) +
   theme_bw() +
   theme(
     axis.text.x = element_blank(),
@@ -46,7 +35,7 @@ ggplot(qtls_per_gene, aes(x = tissue, y = qtls_per_gene, fill = type)) +
     panel.grid = element_blank(),
   ) +
   xlab("GTEx tissues") +
-  ylab("xQTLs per gene") +
+  ylab("xQTLs (×1000)") +
   labs(fill = NULL)
 
 ggsave("figures/figure3/figure3a.png", width = 3.5, height = 3, device = png)
@@ -60,17 +49,18 @@ gtex_colors <- read_tsv(
   mutate(colorHex = str_c("#", colorHex)) |>
   deframe()
 
-qtls_per_gene_wide <- qtls_per_gene |>
-  pivot_wider(id_cols = tissue, names_from = "type", values_from = "qtls_per_gene")
+qtls_wide <- qtls |>
+  pivot_wider(id_cols = tissue, names_from = "type", values_from = "n")
 
-ggplot(qtls_per_gene_wide, aes(x = Explicit, y = Latent, color = tissue)) +
+ggplot(qtls_wide, aes(x = Explicit / 1000, y = Latent / 1000, color = tissue)) +
   geom_abline(slope = 1, intercept = 0, linetype = 3) +
   geom_point(show.legend = FALSE) +
   expand_limits(
-    x = c(0, max(qtls_per_gene_wide$Explicit) * 1.06),
-    y = c(0, max(qtls_per_gene_wide$Latent) * 1.03),
+    x = c(0, max(qtls_wide$Explicit) * 1.06 / 1000),
+    y = c(0, max(qtls_wide$Latent) * 1.03 / 1000),
   ) +
-  scale_x_continuous(breaks = c(0, 0.5, 1)) +
+  # scale_x_continuous(breaks = c(0, 0.5, 1)) +
+  scale_y_continuous(breaks = c(0, 10, 20, 30, 40, 50, 60)) +
   scale_color_manual(values = gtex_colors) +
   coord_fixed(expand = 0) +
   theme_bw() +
@@ -78,8 +68,8 @@ ggplot(qtls_per_gene_wide, aes(x = Explicit, y = Latent, color = tissue)) +
     axis.text = element_text(color = "black"),
     panel.grid = element_blank(),
   ) +
-  xlab("Explicit xQTLs per gene") +
-  ylab("Latent xQTLs per gene") +
+  xlab("Explicit xQTLs (×1000)") +
+  ylab("Latent xQTLs (×1000)") +
   labs(fill = NULL)
 
 ggsave("figures/figure3/figure3b.png", width = 2.5, height = 4, device = png)
@@ -130,12 +120,7 @@ categories <- read_tsv("data/pantry/geuvadis/twas/gwas_metadata.txt",
   mutate(Category = fct_lump_min(Category, 10)) |>
   deframe()
 
-# twas <- read_tsv("data/twas/twas_hits.geuvadis-full-Geuvadis.tsv",
-#                  col_types = "cc---d-----------ddddddd") |>
-#   separate_wider_delim(ID, "__", names = c("gene_id", "PC"), cols_remove = FALSE) |>
-#   rename(trait = TRAIT)
-
-twas <- read_tsv("data/processed/geuvadis.twas_hits.tsv.gz", col_types = "cccdddd")
+twas <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
 
 twas_pantry <- read_tsv("data/pantry/processed/geuvadis.twas.tsv.gz", col_types = "cccc---d") |>
   filter(TWAS.P < 5e-8)
