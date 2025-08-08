@@ -59,10 +59,9 @@ qtls_gtextcga_full |>
   count(tissue, sort = TRUE) |>
   slice(1:3, 47:n())
 
-# "finding that on average, 119% more independent cis-QTLs were found for latent RNA phenotypes than for explicit RNA phenotypes per tissue"
+# "finding that on average, 95% more independent cis-QTLs were found for latent RNA phenotypes than for explicit RNA phenotypes per tissue"
 
-qtls_pantry <- read_tsv("data/pantry/processed/gtex.comb.qtls.tsv.gz",
-                        col_types = "ccicccd")
+qtls_pantry <- read_tsv("data/processed/gtex-pantry.qtls.tsv.gz", col_types = "ccicccd")
 
 full_join(
   qtls_gtextcga_full |>
@@ -238,9 +237,22 @@ qtl_counts |>
 qtls_prune <- read_tsv("data/processed/prune-BRNCTXB.qtls.tsv.gz", col_types = "cicciccd") |>
   filter(map_group %in% c("latent", "pantry"))
 
-# Latent RNA phenotypes were less affected by gene annotation sparsity than were explicit phenotypes, with independent xQTLs dropping X% between 100% and 0% inclusion of non-canonical isoforms, compared to X% for explicit phenotypes
+# "Latent RNA phenotypes were less affected by gene annotation sparsity than were explicit phenotypes, with independent xQTLs dropping X% between 100% and 0% inclusion of non-canonical isoforms, compared to X% for explicit phenotypes"
 
 qtls_prune |>
   count(map_group, pruning) |>
   summarise((n[pruning == 0] / n[pruning == 100] - 1) * 100,
             .by = map_group)
+
+###
+
+qtl_counts_seqsim <- read_tsv("data/processed/seqsim.qtls.tsv.gz", col_types = "cccdci") |>
+  count(reads) |>
+  deframe()
+
+# "When we used each of these variations as input for latent RNA phenotyping and mapped cis-QTLs, we observed a relatively small drop (-6.4%) in discoveries from the 50 bp truncated reads, and larger drops from the single-end (-15%) and lowered sequencing depth (-49% for 50% of reads, -74% for 25% of reads) simulations"
+
+(qtl_counts_seqsim["pe-50bp-100pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100
+(qtl_counts_seqsim["se-75bp-100pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100
+(qtl_counts_seqsim["pe-75bp-50pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100
+(qtl_counts_seqsim["pe-75bp-25pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100

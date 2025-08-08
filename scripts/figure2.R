@@ -3,7 +3,13 @@
 library(tidyverse)
 library(patchwork)
 
-## Panel a: Correlation heatmap example
+hsq_latent <- read_tsv("data/twas/Geuvadis-latent.profile", col_types = "cidddddd-dddd-d") |>
+  separate_wider_delim(id, "__", names = c("gene_id", "PC"), cols_remove = FALSE) |>
+  mutate(PC = str_replace(PC, "PC", "") |> as.integer())
+
+#############
+## Panel a ## Correlation heatmap example
+#############
 
 # gene <- "ENSG00000170291"  # ELP5
 gene <- "ENSG00000090238"  # YPEL3
@@ -67,15 +73,45 @@ cor(t(phenos_latent), t(phenos_pantry), method = "spearman") |>
   theme(
     axis.text.x = element_text(hjust = 0, angle = 60, color = "black"),
     axis.text.y = element_text(color = "black"),
+    legend.box.spacing = unit(30, "pt"),
     panel.grid = element_blank(),
   ) +
   xlab(str_glue("Explicit phenotypes for {gene_name}")) +
   ylab(str_glue("Latent phenotypes for {gene_name}")) +
   labs(fill = expression("Corr. "*(rho)))
 
-ggsave("figures/figure2/figure2a.png", width = 4.5, height = 4, device = png)
+ggsave("figures/figure2/figure2a.png", width = 4.8, height = 4, device = png)
 
-## Panel b: Latent phenotype cis-heritability
+## Show significant heritability values to the right
+
+hsq_latent |>
+  filter(gene_id == gene) |>
+  arrange(PC) |>
+  select(gene_id, PC, hsq, hsq.se, hsq.pv)
+
+#############
+## Panel b ## Number of heritable phenotypes per PC
+#############
+
+hsq_latent |>
+  count(PC) |>
+  ggplot(aes(x = PC, y = n / 1000)) +
+  geom_col(width = 0.7, fill = "black") +
+  scale_x_continuous(expand = c(0, 0.2)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  expand_limits(y = 10.4) +
+  theme_bw() +
+  theme(
+    axis.text = element_text(color = "black"),
+    panel.grid = element_blank(),
+  ) +
+  ylab(expression("Genes with significant cis-"*h^2*" (×1000)"))
+
+ggsave("figures/figure2/figure2b.png", width = 2, height = 3, device = png)
+
+#############
+## Panel c ## Latent vs explicit phenotype cis-heritability
+#############
 
 modalities <- c(
   expression = "Expression",
@@ -86,10 +122,6 @@ modalities <- c(
   stability = "RNA stability",
   latent = "Latent"
 )
-
-hsq_latent <- read_tsv("data/twas/Geuvadis-latent.profile", col_types = "cidddddd-dddd-d") |>
-  separate_wider_delim(id, "__", names = c("gene_id", "PC"), cols_remove = FALSE) |>
-  mutate(PC = str_replace(PC, "PC", "") |> as.integer())
 
 hsq_pantry <- read_tsv("data/pantry/processed/geuvadis.hsq.tsv.gz", col_types = "ccciddddddddddd") |>
   mutate(modality = factor(modalities[modality], levels = modalities) |>
@@ -133,18 +165,3 @@ p1 + p2 + plot_layout(widths = c(11, 6))
 
 ggsave("figures/figure2/figure2c.png", width = 5, height = 4, device = png)
 
-hsq_latent |>
-  count(PC) |>
-  ggplot(aes(x = PC, y = n / 1000)) +
-  geom_col(width = 0.7, fill = "black") +
-  scale_x_continuous(expand = c(0, 0.2)) +
-  scale_y_continuous(expand = c(0, 0)) +
-  expand_limits(y = 10.4) +
-  theme_bw() +
-  theme(
-    axis.text = element_text(color = "black"),
-    panel.grid = element_blank(),
-  ) +
-  ylab(expression("Genes with significant cis-"*h^2*" (×1000)"))
-
-ggsave("figures/figure2/figure2b.png", width = 2, height = 3, device = png)

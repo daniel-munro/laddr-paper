@@ -25,18 +25,20 @@ modality_colors <- c(
   `Latent (residual)` = "#1ce6df"
 )
 
-## Panel a: Latent-explicit correlations
+#############
+## Panel a ## Latent-explicit correlations
+#############
 
 latent_types = c(
   full = "Full",
   residual = "Residual",
-  null = "Null"
+  null = "Null (control)"
 )
 
 latent_colors <- c(
   Full = "#13918d",
   Residual = "#1ce6df",
-  Null = "white"
+  `Null (control)` = "#aaaaaa"
 )
 
 corrs_max <- read_tsv("data/processed/latent_explicit_corrs.tsv.gz", col_types = "ccccd") |>
@@ -44,10 +46,20 @@ corrs_max <- read_tsv("data/processed/latent_explicit_corrs.tsv.gz", col_types =
          r2_max = r^2)
 
 corrs_max |>
+  summarise(
+    r2_max_mean = mean(r2_max),
+    r2_max_sd = sd(r2_max),
+    .by = c(latent, PC)
+  ) |>
   mutate(latent = factor(latent_types[latent], levels = latent_types)) |>
-  ggplot(aes(x = PC, y = r2_max, fill = latent)) +
-  geom_boxplot(outlier.size = 0.1, linewidth = 0.3) +
-  scale_fill_manual(values = latent_colors) +
+  ggplot(aes(x = PC,
+             y = r2_max_mean,
+             ymin = r2_max_mean - r2_max_sd,
+             ymax = r2_max_mean + r2_max_sd,
+             color = latent)) +
+  geom_pointrange(linewidth = 0.8, size = 0.3, position = position_dodge(width = 0.6)) +
+  coord_cartesian(xlim = c(0.5, 16.5), ylim = c(0, 0.7), expand = 0) +
+  scale_color_manual(values = latent_colors) +
   theme_classic() +
   theme(
     axis.text = element_text(color = "black"),
@@ -55,12 +67,14 @@ corrs_max |>
     legend.position.inside = c(0.8, 0.8),
   ) +
   xlab("Latent RNA phenotype rank per gene") +
-  ylab(expression("Maximum "*r^2*" to explicit phenotype")) +
-  labs(fill = "Latent type")
+  ylab(expression("Maximum "*r^2*" to an explicit phenotype")) +
+  labs(color = "Latent type")
 
 ggsave("figures/figure4/figure4a.png", width = 4.5, height = 3, device = png)
 
-## Panel b: Explicit vs explicit + latent vs. full latent xQTLs
+#############
+## Panel b ## Explicit vs explicit + latent vs. full latent xQTLs
+#############
 
 versions <- c(
   `residual-cross_pantry` = "Explicit",
@@ -90,7 +104,9 @@ qtls_geuvadis |>
 
 ggsave("figures/figure4/figure4b.png", width = 6, height = 1.8, device = png)
 
-## Panel c: Held-out modality xQTLs
+#############
+## Panel c ## Held-out modality xQTLs
+#############
 
 qtls_held_out <- read_tsv(
   "data/processed/held_out-geuvadis.qtls.tsv.gz", col_types = "ccccdci"

@@ -128,6 +128,20 @@ qtls_gtex_cross <- tibble(tissue = tissues_gtex) |>
 
 write_tsv(qtls_gtex_cross, "data/processed/gtex-residual-cross.qtls.tsv.gz")
 
+qtls_gtex_pantry <- tibble(tissue = tissues_gtex) |>
+  reframe(
+    read_tsv(
+      str_glue("data/qtl/pantry/{tissue}.cis_independent_qtl.txt.gz"),
+      col_types = "c-----c---------cc-i"
+    ),
+    .by = tissue
+  ) |>
+  select(tissue, gene_id = group_id, rank, phenotype_id, variant_id, pval_beta) |>
+  filter(gene_id %in% genes$gene_id) |> # Keep only PCG + lncRNA
+  separate_wider_delim(phenotype_id, names = c("modality", "phenotype_id"), delim = ":", too_many = "merge")
+
+write_tsv(qtls_gtex_pantry, "data/processed/gtex-pantry.qtls.tsv.gz")
+
 ##################
 ## QTLs special ##
 ##################

@@ -2,11 +2,15 @@
 
 library(tidyverse)
 
-## Panel a: Full latent vs. explicit xQTLs bar plot
+#############
+## Panel a ## Full latent vs. explicit xQTLs bar plot
+#############
+
+genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-c----")
 
 qtls_gtextcga_full <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
 
-qtls_pantry <- read_tsv("data/pantry/processed/gtex.comb.qtls.tsv.gz", col_types = "ccicccid")
+qtls_pantry <- read_tsv("data/processed/gtex-pantry.qtls.tsv.gz", col_types = "ccicccd")
 
 qtls <- bind_rows(
   qtls_gtextcga_full |>
@@ -14,13 +18,19 @@ qtls <- bind_rows(
   qtls_pantry |>
     mutate(type = "Explicit")
 ) |>
-  count(type, tissue) |>
+  left_join(genes, by = "gene_id", relationship = "many-to-one") |>
+  summarise(n = n(),
+            n_pcg = sum(gene_biotype == "protein_coding"),
+            .by = c(type, tissue)) |>
   arrange(desc(type), desc(n)) |>
   mutate(tissue = fct_inorder(tissue),
          type = fct_inorder(type) |> fct_rev())
 
 ggplot(qtls, aes(x = tissue, y = n / 1000, fill = type)) +
-  geom_col(position = "dodge") +
+  geom_col(position = "dodge", alpha = 0.6) +
+  geom_col(
+    aes(y = n_pcg / 1000), position = "dodge"
+  ) +
   scale_y_continuous(expand = c(0, 0)) +
   scale_fill_manual(values = c("coral", "#13918d")) +
   expand_limits(y = max(qtls$n * 1.03 / 1000)) +
@@ -40,7 +50,9 @@ ggplot(qtls, aes(x = tissue, y = n / 1000, fill = type)) +
 
 ggsave("figures/figure3/figure3a.png", width = 3.5, height = 3, device = png)
 
-## Panel b: Full latent vs. explicit xQTLs scatter plot
+#############
+## Panel b ## Full latent vs. explicit xQTLs scatter plot
+#############
 
 gtex_colors <- read_tsv(
   "data/pantry/gtex/tissueInfo.tsv",
@@ -74,7 +86,9 @@ ggplot(qtls_wide, aes(x = Explicit / 1000, y = Latent / 1000, color = tissue)) +
 
 ggsave("figures/figure3/figure3b.png", width = 2.5, height = 4, device = png)
 
-## Panel c: xQTLs by PC number
+#############
+## Panel c ## xQTLs by PC number
+#############
 
 qtls_gtextcga_full |>
   mutate(PC = str_split_i(phenotype_id, "__PC", 2) |>
@@ -92,7 +106,9 @@ qtls_gtextcga_full |>
 
 ggsave("figures/figure3/figure3c.png", width = 3.5, height = 3, device = png)
 
-## Panel d: Latent vs. explicit TWAS hits by category
+#############
+## Panel d ## Latent vs. explicit TWAS hits by category
+#############
 
 modalities <- c(
   expression = "Expression",
@@ -127,11 +143,11 @@ twas_pantry <- read_tsv("data/pantry/processed/geuvadis.twas.tsv.gz", col_types 
 
 df <- bind_rows(
   twas |>
-    select(trait, gene_id) |>
+    select(trait, gene_id, coloc_pp) |>
     mutate(trait = as.character(trait)) |>
     mutate(phenos = "Latent", modality = "latent", .before = 1),
   twas_pantry |>
-    select(trait, gene_id, modality) |>
+    select(trait, gene_id, modality, coloc_pp = COLOC.PP4) |>
     mutate(phenos = "Explicit", .before = 1),
 ) |>
   mutate(
@@ -160,3 +176,34 @@ df |>
   ylab("TWAS hits")
 
 ggsave("figures/figure3/figure3d.png", width = 4, height = 4, device = png)
+
+#############
+## Panel e ## Latent vs. explicit colocalizing TWAS hits
+#############
+
+df |>
+  filter(coloc_pp >= 0.8) |>
+  distinct(phenos, trait, gene_id) |>
+  count(phenos, trait) |>
+  pivot_wider(id_cols = trait, names_from = phenos, values_from = n) |>
+  mutate(category = categories[trait]) |>
+  ggplot(aes(x = Explicit, y = Latent, color = category)) +
+  geom_abline(slope = 1, intercept = 0, color = "#cccccc") +
+  geom_point() +
+  coord_fixed() +
+  scale_x_log10() +
+  scale_y_log10() +
+  theme_bw() +
+  theme(
+    legend.box.background = element_rect(),
+    legend.position = "inside",
+    legend.position.inside = c(0.745, 0.2),
+    legend.key.size = unit(12, "pt"),
+    legend.key.spacing = unit(3, "pt"),
+    panel.grid = element_blank(),
+  ) +
+  xlab("Colocalizing gene-trait pairs, explicit phenos") +
+  ylab("Colocalizing gene-trait pairs, latent phenos") +
+  labs(color = "Trait category")
+
+ggsave("figures/figure3/figure3e.png", width = 4, height = 4, device = png)

@@ -2,7 +2,9 @@
 
 library(tidyverse)
 
-## Panels a and b: Effect on xQTLs of including more GTEx tissues and TCGA data for latent models
+####################
+## Panels a and b ## Effect on xQTLs of including more GTEx tissues and TCGA data for latent models
+####################
 
 qtls_gtex5_full <- read_tsv("data/processed/gtex5-full.qtls.tsv.gz", col_types = "cciccd")
 
@@ -34,15 +36,18 @@ qtl_counts <- full_join(
     relationship = "one-to-one"
   )
 
+xy_limit <- with(qtl_counts, max(n_gtex5, n_gtex, n_gtextcga)) / 1000 * 1.04
+
 qtl_counts |>
-  ggplot(aes(x = n_gtex5 / 1000, y = n_gtex / 1000, fill = tissue, shape = tissue %in% tissues5)) +
+  mutate(in_5_tissues = if_else(tissue %in% tissues5, "True", "False")) |>
+  ggplot(aes(x = n_gtex5 / 1000, y = n_gtex / 1000, fill = tissue, shape = in_5_tissues)) +
   geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.3) +
   annotate("text", label = "y = x", x = 8, y = 7, hjust = 0) +
   geom_point(alpha = 0.75) +
   # scale_color_manual(values = c("black", "red")) +
   scale_fill_manual(values = gtex_colors, guide = "none") +
   scale_shape_manual(values = c(21, 24)) +
-  expand_limits(x = c(0, 50), y = c(0, 50)) +
+  expand_limits(x = c(0, xy_limit), y = c(0, xy_limit)) +
   coord_fixed(expand = 0) +
   theme_bw() +
   theme(
@@ -52,7 +57,7 @@ qtl_counts |>
     panel.grid = element_blank(),
   ) +
   xlab("xQTLs (×1000), 5-tissue models") +
-  ylab("xQTLs (×1000), 54-tissue models") +
+  ylab("xQTLs (×1000), GTEx models") +
   labs(shape = "Tissue used for\n5-tissue models")
 
 ggsave("figures/figure5/figure5a.png", width = 3.75, height = 3.75, device = png)
@@ -63,7 +68,7 @@ qtl_counts |>
   annotate("text", label = "y = x", x = 8, y = 7, hjust = 0) +
   geom_point(shape = 21, color = "black", alpha = 0.75, show.legend = FALSE) +
   scale_fill_manual(values = gtex_colors) +
-  expand_limits(x = c(0, 50), y = c(0, 50)) +
+  expand_limits(x = c(0, xy_limit), y = c(0, xy_limit)) +
   coord_fixed(expand = 0) +
   theme_bw() +
   theme(
@@ -72,12 +77,14 @@ qtl_counts |>
     legend.position.inside = c(0.9, 0.1),
     panel.grid = element_blank(),
   ) +
-  xlab("xQTLs (×1000), 54-tissue models") +
-  ylab("xQTLs (×1000), 54-tissue + 33-cancer models")
+  xlab("xQTLs (×1000), GTEx models") +
+  ylab("xQTLs (×1000), GTEx + TCGA models")
 
 ggsave("figures/figure5/figure5b.png", width = 3.75, height = 3.75, device = png)
 
-## Panel c: Pruned annotation xQTLs
+#############
+## Panel c ## Pruned annotation xQTLs
+#############
 
 modalities <- c(
   latent = "Latent",
