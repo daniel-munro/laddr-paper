@@ -84,12 +84,48 @@ qtls_gtextcga_full |>
 
 ###
 
-# "Applying these to GWAS data for a collection of 114 complex traits resulted in a median of 31,347 significant TWAS associations per tissue, including a total of 28,828 unique gene-trait pairs, 11,655 of which include hits with strong evidence of colocalization at the level of shared causal variant"
+# "Compared to six-modality xTWAS at the same p-value threshold of 5⨉10-8 and using the same Geuvadis dataset for transcriptomic models, latent phenotypes resulted in nearly the same number of total associations (24,697 vs. 24,644 for six-modality), 33% more unique gene-trait pairs with associations, and 37% more unique gene-trait pairs with strong evidence of colocalization at the level of shared causal variant."
 
-# TODO update to use all GTEX tissues
+twas_geuv <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
+twas_geuv_pantry <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "ccccdddd")
+twas_geuv_both <- bind_rows(
+  twas_geuv |> mutate(type = "latent"),
+  twas_geuv_pantry |> mutate(type = "explicit"),
+)
+
+bind_cols(
+  twas_geuv |>
+    count(name = "n_latent"),
+  twas_geuv_pantry |>
+    count(name = "n_explicit"),
+) |>
+  mutate(percent_inc = (n_latent / n_explicit - 1) * 100)
+
+bind_cols(
+  twas_geuv |>
+    distinct(gene_id, trait) |>
+    count(name = "n_latent"),
+  twas_geuv_pantry |>
+    distinct(gene_id, trait) |>
+    count(name = "n_explicit"),
+) |>
+  mutate(percent_inc = (n_latent / n_explicit - 1) * 100)
+
+bind_cols(
+  twas_geuv |>
+    filter(coloc_pp > 0.8) |>
+    distinct(gene_id, trait) |>
+    count(name = "n_latent"),
+  twas_geuv_pantry |>
+    filter(coloc_pp > 0.8) |>
+    distinct(gene_id, trait) |>
+    count(name = "n_explicit"),
+) |>
+  mutate(percent_inc = (n_latent / n_explicit - 1) * 100)
+
+# "Applying xTWAS to latent RNA phenotypes for 49 GTEx tissues and the same 114 traits resulted in a median of 26,501 significant TWAS associations per GTEx tissue, including a total of 64,314 unique gene-trait pairs, 28,116 of which include strongly colocalizing associations"
 
 twas_gtex <- read_tsv("data/processed/gtextcga-full.twas_hits.tsv.gz", col_types = "ccccdddd")
-twas_pantry <- read_tsv("data/pantry/processed/gtex.twas_hits.tsv.gz", col_types = "cccc----d----d")
 
 twas_gtex |>
   count(tissue) |>
@@ -104,46 +140,33 @@ twas_gtex |>
   distinct(gene_id, trait) |>
   count()
 
-# "Compared to six-modality xTWAS and using the same p-value threshold, latent phenotypes resulted in an average of 131% more associations per tissue, 106% more unique gene-trait pairs overall with associations, and 102% more unique gene-trait pairs overall with strongly colocalizing associations."
+###
 
-left_join(
-  twas_gtex |>
-    filter(twas_p < 5e-8 / 6) |>
-    count(tissue, name = "n_latent"),
-  twas_pantry |>
-    count(tissue, name = "n_explicit"),
-  by = "tissue"
-) |>
-  mutate(percent_inc = (n_latent / n_explicit - 1) * 100) |>
-  summarise(mean_percent_inc = mean(percent_inc))
+# "Despite long non-coding RNAs (lncRNAs) having higher transcript complexity (i.e., splice variants per exon) than protein-coding mRNAs, xQTL mapping across six explicit modalities produced an average of 0.16 independent xQTLs per gene per tissue for lncRNAs, which is only 29% of the rate for protein-coding genes."
 
-bind_cols(
-  twas_gtex |>
-    filter(twas_p < 5e-8 / 6,
-           tissue %in% twas_pantry$tissue) |>
-    distinct(gene_id, trait) |>
-    count(name = "n_latent"),
-  twas_pantry |>
-    filter(tissue %in% twas_gtex$tissue) |>
-    distinct(gene_id, trait) |>
-    count(name = "n_explicit"),
-) |>
-  mutate(percent_inc = (n_latent / n_explicit - 1) * 100)
+genes |>
+  left_join(count(qtls_pantry, gene_id), by = "gene_id", relationship = "one-to-one") |>
+  replace_na(list(n = 0)) |>
+  mutate(n_per_tissue = n / n_distinct(qtls_pantry$tissue)) |>
+  summarise(mean_n_per_tissue = mean(n_per_tissue),
+            .by = gene_biotype)
 
-bind_cols(
-  twas_gtex |>
-    filter(twas_p < 5e-8 / 6,
-           tissue %in% twas_pantry$tissue,
-           coloc_pp > 0.8) |>
-    distinct(gene_id, trait) |>
-    count(name = "n_latent"),
-  twas_pantry |>
-    filter(tissue %in% twas_gtex$tissue,
-           COLOC.PP4 > 0.8) |>
-    distinct(gene_id, trait) |>
-    count(name = "n_explicit"),
-) |>
-  mutate(percent_inc = (n_latent / n_explicit - 1) * 100)
+# "While latent RNA phenotype xQTL mapping also resulted in a lower rate of independent xQTLs for lncRNAs than for protein-coding genes, there were 0.39 xQTLs per gene per tissue, which was 44% of the rate for protein-coding genes."
+
+genes |>
+  left_join(count(qtls_gtextcga_full, gene_id), by = "gene_id", relationship = "one-to-one") |>
+  replace_na(list(n = 0)) |>
+  mutate(n_per_tissue = n / n_distinct(qtls_gtextcga_full$tissue)) |>
+  summarise(mean_n_per_tissue = mean(n_per_tissue),
+            .by = gene_biotype)
+
+###
+
+# "35.6% of latent phenotype TWAS gene-trait pairs involving protein-coding genes had a nearby gene associated with the same trait, compared to 31.4% of explicit phenotype TWAS pairs."
+
+# "For gene-trait pairs involving lncRNAs, the percentages were higher, at 59.9% for latent phenotype TWAS and 57.7% for explicit phenotype TWAS."
+
+# See analyses/nearby_genes/twas_nearby_genes.qmd
 
 ###
 

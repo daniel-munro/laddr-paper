@@ -213,7 +213,7 @@ write_tsv(qtls_seqsim, "data/processed/seqsim.qtls.tsv.gz")
 ##########
 
 twas_geuv_full <- read_tsv(
-  str_glue("data/twas/twas_hits.geuvadis-full-Geuvadis.tsv"),
+  "data/twas/twas_hits.geuvadis-full-Geuvadis.tsv",
   col_types = "cccccccccccccccccccccccc"
 ) |>
   mutate(gene_id = str_split_i(ID, "__", i = 1)) |>
@@ -222,7 +222,17 @@ twas_geuv_full <- read_tsv(
 
 write_tsv(twas_geuv_full, "data/processed/geuvadis-full.twas_hits.tsv.gz")
 
-twas_gtextcga_full <- tibble(tissue = tissues_gtex5) |>
+twas_geuv_resid <- read_tsv(
+  "data/twas/twas_hits.geuvadis-residual-Geuvadis.tsv",
+  col_types = "cccccccccccccccccccccccc"
+) |>
+  mutate(gene_id = str_split_i(ID, "__", i = 1)) |>
+  select(trait = TRAIT, gene_id, phenotype_id = ID, hsq = HSQ, twas_z = TWAS.Z, twas_p = TWAS.P, coloc_pp = COLOC.PP4) |>
+  arrange(trait, gene_id, phenotype_id)
+
+write_tsv(twas_geuv_resid, "data/processed/geuvadis-residual.twas_hits.tsv.gz")
+
+twas_gtextcga_full <- tibble(tissue = tissues_gtex) |>
     reframe(
         read_tsv(
             str_glue("data/twas/twas_hits.gtextcga-full-{tissue}.tsv"),
@@ -235,3 +245,32 @@ twas_gtextcga_full <- tibble(tissue = tissues_gtex5) |>
     arrange(tissue, trait, gene_id, phenotype_id)
 
 write_tsv(twas_gtextcga_full, "data/processed/gtextcga-full.twas_hits.tsv.gz")
+
+twas_gtex_resid <- tibble(tissue = tissues_gtex) |>
+  reframe(
+    read_tsv(
+      str_glue("data/twas/twas_hits.gtex-residual-{tissue}.tsv"),
+      col_types = "cccccccccccccccccccccccc"
+    ),
+    .by = tissue
+  ) |>
+  mutate(gene_id = str_split_i(ID, "__", i = 1)) |>
+  select(tissue, trait = TRAIT, gene_id, phenotype_id = ID, hsq = HSQ, twas_z = TWAS.Z, twas_p = TWAS.P, coloc_pp = COLOC.PP4) |>
+  arrange(tissue, trait, gene_id, phenotype_id)
+
+write_tsv(twas_gtex_resid, "data/processed/gtex-residual.twas_hits.tsv.gz")
+
+twas_geuv_pantry <- tibble(modality = modalities) |>
+  reframe(
+    read_tsv(
+      str_glue("data/twas/geuvadis-pantry/twas_hits.Geuvadis.{modality}.tsv"),
+      col_types = "cccccccccccccccccccccccc"
+    ),
+    .by = modality
+  ) |>
+  mutate(gene_id = str_split_i(ID, "__", i = 1)) |>
+  filter(gene_id %in% genes$gene_id) |> # Keep only PCG + lncRNA
+  select(modality, trait = TRAIT, gene_id, phenotype_id = ID, hsq = HSQ, twas_z = TWAS.Z, twas_p = TWAS.P, coloc_pp = COLOC.PP4) |>
+  arrange(modality, trait, gene_id, phenotype_id)
+
+write_tsv(twas_geuv_pantry, "data/processed/geuvadis-pantry.twas_hits.tsv.gz")

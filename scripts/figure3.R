@@ -6,8 +6,6 @@ library(tidyverse)
 ## Panel a ## Full latent vs. explicit xQTLs bar plot
 #############
 
-genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-c----")
-
 qtls_gtextcga_full <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
 
 qtls_pantry <- read_tsv("data/processed/gtex-pantry.qtls.tsv.gz", col_types = "ccicccd")
@@ -18,19 +16,13 @@ qtls <- bind_rows(
   qtls_pantry |>
     mutate(type = "Explicit")
 ) |>
-  left_join(genes, by = "gene_id", relationship = "many-to-one") |>
-  summarise(n = n(),
-            n_pcg = sum(gene_biotype == "protein_coding"),
-            .by = c(type, tissue)) |>
+  count(type, tissue) |>
   arrange(desc(type), desc(n)) |>
   mutate(tissue = fct_inorder(tissue),
          type = fct_inorder(type) |> fct_rev())
 
 ggplot(qtls, aes(x = tissue, y = n / 1000, fill = type)) +
-  geom_col(position = "dodge", alpha = 0.6) +
-  geom_col(
-    aes(y = n_pcg / 1000), position = "dodge"
-  ) +
+  geom_col(position = "dodge") +
   scale_y_continuous(expand = c(0, 0)) +
   scale_fill_manual(values = c("coral", "#13918d")) +
   expand_limits(y = max(qtls$n * 1.03 / 1000)) +
@@ -84,7 +76,7 @@ ggplot(qtls_wide, aes(x = Explicit / 1000, y = Latent / 1000, color = tissue)) +
   ylab("Latent xQTLs (×1000)") +
   labs(fill = NULL)
 
-ggsave("figures/figure3/figure3b.png", width = 2.5, height = 4, device = png)
+ggsave("figures/figure3/figure3b.png", width = 2.5, height = 3.5, device = png)
 
 #############
 ## Panel c ## xQTLs by PC number
@@ -107,7 +99,7 @@ qtls_gtextcga_full |>
 ggsave("figures/figure3/figure3c.png", width = 3.5, height = 3, device = png)
 
 #############
-## Panel d ## Latent vs. explicit TWAS hits by category
+## Panel d ## Latent vs. explicit TWAS gene-trait pairs by category
 #############
 
 modalities <- c(
@@ -138,25 +130,24 @@ categories <- read_tsv("data/pantry/geuvadis/twas/gwas_metadata.txt",
 
 twas <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
 
-twas_pantry <- read_tsv("data/pantry/processed/geuvadis.twas.tsv.gz", col_types = "cccc---d") |>
-  filter(TWAS.P < 5e-8)
+twas_pantry <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "cccc--dd")
 
-df <- bind_rows(
+twas_both <- bind_rows(
   twas |>
-    select(trait, gene_id, coloc_pp) |>
     mutate(trait = as.character(trait)) |>
-    mutate(phenos = "Latent", modality = "latent", .before = 1),
+    mutate(phenos = "Latent", modality = "latent") |>
+    select(phenos, trait, gene_id, modality, twas_p, coloc_pp),
   twas_pantry |>
-    select(trait, gene_id, modality, coloc_pp = COLOC.PP4) |>
-    mutate(phenos = "Explicit", .before = 1),
+    mutate(phenos = "Explicit") |>
+    select(phenos, trait, gene_id, modality, twas_p, coloc_pp),
 ) |>
-  mutate(
-    category = categories[trait] |>
-      fct_infreq(),
-    modality = factor(modalities[modality], levels = modalities),
-  )
+  mutate(category = categories[trait] |> fct_infreq())
 
-df |>
+twas_topmod <- twas_both |>
+  slice_min(twas_p, n = 1, with_ties = FALSE, by = c(phenos, trait, gene_id)) |>
+  mutate(modality = factor(modalities[modality], levels = modalities))
+
+twas_topmod |>
   ggplot(aes(x = category, fill = modality)) +
   facet_wrap(~ phenos) +
   geom_bar() +
@@ -165,15 +156,15 @@ df |>
   theme(
     axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
     legend.position = "inside",
-    legend.position.inside = c(0.32, 0.72),
+    legend.position.inside = c(0.32, 0.7),
     legend.key.size = unit(9, "pt"),
     legend.text = element_text(size = 7),
     legend.title = element_text(size = 10),
     panel.grid = element_blank(),
   ) +
-  labs(fill = "Modality") +
+  labs(fill = "Modality of\npair's top hit") +
   xlab("Trait category") +
-  ylab("TWAS hits")
+  ylab("Gene-trait pairs with TWAS hit(s)")
 
 ggsave("figures/figure3/figure3d.png", width = 4, height = 4, device = png)
 
@@ -181,15 +172,17 @@ ggsave("figures/figure3/figure3d.png", width = 4, height = 4, device = png)
 ## Panel e ## Latent vs. explicit colocalizing TWAS hits
 #############
 
+twas_coloc_pairs <- twas_both |>
 df |>
   filter(coloc_pp >= 0.8) |>
   distinct(phenos, trait, gene_id) |>
   count(phenos, trait) |>
-  pivot_wider(id_cols = trait, names_from = phenos, values_from = n) |>
+  pivot_wider(id_cols = trait, names_from = phenos, values_from = n, values_fill = 0L) |>
   mutate(category = categories[trait]) |>
   ggplot(aes(x = Explicit, y = Latent, color = category)) +
   geom_abline(slope = 1, intercept = 0, color = "#cccccc") +
   geom_point() +
+  annotate("text", x = 230, y = 150, label = "y = x", color = "#999999") +
   coord_fixed() +
   scale_x_log10() +
   scale_y_log10() +
@@ -207,3 +200,104 @@ df |>
   labs(color = "Trait category")
 
 ggsave("figures/figure3/figure3e.png", width = 4, height = 4, device = png)
+
+#############
+## Panel f ## Explicit + residual latent TWAS top hits
+#############
+
+modalities2 <- c(
+  expression = "Expression",
+  isoforms = "Isoform ratio",
+  splicing = "Intron excision",
+  alt_TSS = "Alt. TSS",
+  alt_polyA = "Alt. polyA",
+  stability = "RNA stability",
+  latent = "Latent (residual)"
+)
+
+# Use muted version of Pantry colors to deemphasize what is already known
+modality_colors2 <- c(
+  Expression = "#bf4042",
+  `Isoform ratio` = "#6a90cd",
+  `Intron excision` = "#59a257",
+  `Alt. TSS` = "#896090",
+  `Alt. polyA` = "#d97f26",
+  `RNA stability` = "#ddb23c",
+  `Latent (residual)` = "#13918d"
+)
+
+twas_resid <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "ccccdddd")
+
+twas_panres <- bind_rows(
+  twas_pantry |>
+    select(trait, gene_id, modality, twas_p),
+  twas_resid |>
+    mutate(modality = "latent") |>
+    select(trait, gene_id, modality, twas_p),
+) |>
+  mutate(category = categories[trait] |> fct_infreq(),
+         modality = factor(modalities2[modality], levels = modalities2))
+
+twas_panres_tophit <- twas_panres |>
+  slice_min(twas_p, n = 1, with_ties = FALSE, by = c(trait, gene_id))
+
+twas_panres_tophit |>
+  count(category, modality) |>
+  ggplot(aes(x = category, y = n / 1000, fill = modality)) +
+  geom_col() +
+  scale_fill_manual(values = modality_colors2) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
+    legend.position = "inside",
+    legend.position.inside = c(0.7, 0.7),
+    legend.key.size = unit(9, "pt"),
+    legend.text = element_text(size = 7),
+    legend.title = element_text(size = 10),
+    panel.grid = element_blank(),
+  ) +
+  labs(fill = "Modality of\npair's top hit") +
+  xlab("Trait category") +
+  ylab("Gene-trait pairs with TWAS hit(s) (×1000)")
+
+ggsave("figures/figure3/figure3f.png", width = 2.3, height = 4, device = png)
+
+#############
+## Panel g ## Explicit + residual latent TWAS overlap
+#############
+
+twas_panres_overlap <- twas_panres |>
+  mutate(modality_type = if_else(modality == "Latent (residual)", "Latent", "Explicit")) |>
+  distinct(trait, gene_id, modality_type) |>
+  summarise(
+    modality_hits = str_c(sort(unique(modality_type)), collapse = "_"),
+    .by = c(trait, gene_id)
+  ) |>
+  mutate(
+    modality_hits = c(`Explicit` = "Explicit only",
+                      `Explicit_Latent` = "Explicit & Latent",
+                      `Latent` = "Latent only")[modality_hits] |>
+      fct_relevel("Explicit only", "Explicit & Latent", "Latent only"),
+    category = fct_infreq(categories[trait]),
+  )
+
+twas_panres_overlap |>
+  count(category, modality_hits) |>
+  ggplot(aes(x = category, y = n / 1000, fill = modality_hits)) +
+  geom_col(color = "black") +
+  scale_fill_manual(values = c("white", "gray", "#444444")) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
+    legend.position = "inside",
+    legend.position.inside = c(0.68, 0.7),
+    legend.key.size = unit(9, "pt"),
+    legend.text = element_text(size = 7),
+    legend.title = element_text(size = 10),
+    panel.grid = element_blank(),
+  ) +
+  labs(fill = "Gene's xTWAS\nhits include") +
+  xlab("Trait category") +
+  ylab("Gene-trait pairs with TWAS hit(s) (×1000)")
+
+ggsave("figures/figure3/figure3g.png", width = 2.3, height = 4, device = png)
