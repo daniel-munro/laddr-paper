@@ -107,8 +107,8 @@ modality_colors <- c(
 )
 
 map_groups <- c(
-  latent = "Latent",
-  pantry = "All explicit"
+  latent = "Data-driven",
+  pantry = "Knowledge-driven"
 )
 
 qtls_prune <- read_tsv("data/processed/prune-BRNCTXB.qtls.tsv.gz", col_types = "cicciccd") |>
@@ -123,7 +123,7 @@ ylims <- qtls_prune |>
 
 qtls_prune |>
   count(map_group, pruning, modality) |>
-  filter(map_group %in% c("Latent", "All explicit")) |>
+  filter(map_group %in% c("Data-driven", "Knowledge-driven")) |>
   ggplot(aes(x = pruning, y = n / 1000, fill = modality)) +
   facet_wrap(~map_group, scales = "free_y") +
   geom_col(width = 0.8) +
@@ -133,7 +133,6 @@ qtls_prune |>
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
-    axis.ticks.x = element_blank(),
     legend.key.size = unit(12, "pt"),
     panel.grid = element_blank(),
   ) +

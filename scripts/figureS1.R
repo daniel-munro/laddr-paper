@@ -78,6 +78,6 @@ ggplot(df, aes(x = rel_pos_gene, fill = modality)) +
   ) +
   xlab("xVariant position normalized to xGene length") +
   ylab("No. xQTLs") +
-  ggtitle("New latent xQTLs when holding out the indicated modality")
+  ggtitle("New RP xQTLs when holding out the indicated modality")
 
 ggsave("figures/figureS1.png", width = 6, height = 6, device = png)

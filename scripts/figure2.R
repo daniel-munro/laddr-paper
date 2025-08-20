@@ -62,7 +62,7 @@ stopifnot(identical(colnames(phenos_latent), colnames(phenos_pantry)))
 cor(t(phenos_latent), t(phenos_pantry), method = "spearman") |>
   as_tibble(rownames = "PC") |>
   pivot_longer(-PC, names_to = "pantry_pheno", values_to = "rho") |>
-  mutate(PC = fct_inorder(PC) |> fct_rev(),
+  mutate(PC = str_replace(PC, "PC", "DP") |> fct_inorder() |> fct_rev(),
          pantry_pheno = fct_inorder(pantry_pheno)) |>
   ggplot(aes(x = pantry_pheno, y = PC, fill = rho)) +
   geom_tile() +
@@ -76,8 +76,8 @@ cor(t(phenos_latent), t(phenos_pantry), method = "spearman") |>
     legend.box.spacing = unit(30, "pt"),
     panel.grid = element_blank(),
   ) +
-  xlab(str_glue("Explicit phenotypes for {gene_name}")) +
-  ylab(str_glue("Latent phenotypes for {gene_name}")) +
+  xlab(str_glue("Knowledge-driven phenotypes for {gene_name}")) +
+  ylab(str_glue("Data-driven phenotypes for {gene_name}")) +
   labs(fill = expression("Corr. "*(rho)))
 
 ggsave("figures/figure2/figure2a.png", width = 4.8, height = 4, device = png)
@@ -105,7 +105,8 @@ hsq_latent |>
     axis.text = element_text(color = "black"),
     panel.grid = element_blank(),
   ) +
-  ylab(expression("Genes with significant cis-"*h^2*" (×1000)"))
+  xlab("DP rank in gene") +
+  ylab(expression("DPs with significant cis-"*h^2*" (×1000)"))
 
 ggsave("figures/figure2/figure2b.png", width = 2, height = 3, device = png)
 
@@ -141,8 +142,9 @@ p1 <- hsq_latent |>
     panel.grid = element_blank(),
     plot.margin = margin(5.5, 0, 5.5, 5.5),
   ) +
-  ylab(expression(h^2)) +
-  ggtitle("Latent phenotypes")
+  xlab("DP rank in gene") +
+  ylab(expression("cis-"*h^2)) +
+  ggtitle("Data-driven")
 
 p2 <- hsq_pantry |>
   ggplot(aes(x = modality, y = hsq)) +
@@ -159,7 +161,7 @@ p2 <- hsq_pantry |>
   ) +
   xlab("Modality") +
   ylab(NULL) +
-  ggtitle("Explicit phenotypes")
+  ggtitle("Knowledge-driven")
 
 p1 + p2 + plot_layout(widths = c(11, 6))
 

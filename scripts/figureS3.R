@@ -127,7 +127,7 @@ p2 <- stats_avg_model |>
     axis.text = element_text(color = "black"),
     panel.grid = element_blank(),
   ) +
-  xlab("Latent phenotypes per gene (mean)") +
+  xlab("Data-driven RNA phenotypes per gene (mean)") +
   ylab("xQTLs per gene (mean)") +
   labs(color = "Model type", shape = "Model type") +
   ggtitle("Model variations")

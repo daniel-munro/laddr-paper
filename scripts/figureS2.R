@@ -22,7 +22,7 @@ qtls |>
   count(reads) |>
   mutate(rel_amount = n / n[reads == "75 bp P.E."]) |>
   ggplot(aes(x = reads, y = rel_amount)) +
-  geom_col(width = 0.7) +
+  geom_col(width = 0.5, fill = "black") +
   scale_y_continuous(expand = c(0, 0), labels = scales::label_percent()) +
   # expand_limits(y = c(max(count(qtls, reads)$n) * 1.04, 10000)) +
   expand_limits(y = 1.04) +

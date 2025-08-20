@@ -191,7 +191,7 @@ corrs_max |>
 ###
 
 # "Explicit modalities resulted in 22,470 total xQTLs, while full latent phenotypes resulted in 30,158 xQTLs.
-# Adding residual latent phenotypes to explicit phenotypes resulted in a net increase of 1,720 xQTLs for a total of 31,878, 16,544 of which were called for explicit phenotypes and 15,334 of which were called for residual latent phenotypes"
+# Adding residual latent phenotypes to explicit phenotypes resulted in a net increase of 9,408 xQTLs (42%) for a total of 31,878, 16,544 of which were called for explicit phenotypes and 15,334 of which were called for residual latent phenotypes"
 
 qtls_geuvadis <- read_tsv("data/processed/geuvadis.qtls.tsv.gz", col_types = "ccccdci")
 
@@ -220,6 +220,27 @@ qtls_held_out <- read_tsv(
 qtls_held_out |>
   filter(modality == "latent_residual") |>
   count(held_out, sort = TRUE)
+
+###
+
+twas_pantry <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "ccc---d-")
+
+twas_resid <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "cc---d-") |>
+  mutate(modality = "latent", .before = 1)
+
+# "This resulted in a 37% increase in unique gene-trait association pairs"
+
+bind_rows(twas_pantry, twas_resid) |>
+  summarise(latent_only = all(modality == "latent"),
+            .by = c(trait, gene_id)) |>
+  with(mean(latent_only))
+
+# "and residual latent phenotypes had the strongest associations for 7,655 (53%) of all unique pairs"
+
+bind_rows(twas_pantry, twas_resid) |>
+  slice_min(twas_p, n = 1, with_ties = FALSE, by = c(trait, gene_id)) |>
+  summarise(n_latent = sum(modality == "latent"),
+            frac_latent = mean(modality == "latent"))
 
 ###
 
