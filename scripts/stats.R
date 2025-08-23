@@ -144,11 +144,25 @@ twas_gtex |>
 
 # "Despite long non-coding RNAs (lncRNAs) having higher transcript complexity (i.e., splice variants per exon) than protein-coding mRNAs, xQTL mapping across six explicit modalities produced an average of 0.16 independent xQTLs per gene per tissue for lncRNAs, which is only 29% of the rate for protein-coding genes."
 
+genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-c----")
+
 genes |>
   left_join(count(qtls_pantry, gene_id), by = "gene_id", relationship = "one-to-one") |>
   replace_na(list(n = 0)) |>
   mutate(n_per_tissue = n / n_distinct(qtls_pantry$tissue)) |>
   summarise(mean_n_per_tissue = mean(n_per_tissue),
+            .by = gene_biotype)
+
+# "it is similar to the rate of total annotated exons per gene (i.e., the product of the rate of exons per isoform and the rate of isoforms per gene), for which lncRNAs have 28.9% the rate of protein-coding genes."
+
+anno <- rtracklayer::import("data/ref/Homo_sapiens.GRCh38.113.chr.gtf.gz") |>
+  as_tibble() |>
+  filter(gene_id %in% genes$gene_id)
+
+anno |>
+  filter(type == "exon") |>
+  count(gene_id, gene_biotype) |>
+  summarise(mean_exons_per_gene = mean(n),
             .by = gene_biotype)
 
 # "While latent RNA phenotype xQTL mapping also resulted in a lower rate of independent xQTLs for lncRNAs than for protein-coding genes, there were 0.39 xQTLs per gene per tissue, which was 44% of the rate for protein-coding genes."

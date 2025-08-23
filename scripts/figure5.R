@@ -87,7 +87,7 @@ ggsave("figures/figure5/figure5b.png", width = 3.75, height = 3.75, device = png
 #############
 
 modalities <- c(
-  latent = "Latent",
+  latent = "Data-driven",
   alt_TSS = "Alt. TSS",
   alt_polyA = "Alt. polyA",
   isoforms = "Isoform ratio",
@@ -97,7 +97,7 @@ modalities <- c(
 )
 
 modality_colors <- c(
-  `Latent` = "#13918d",
+  `Data-driven` = "#13918d",
   `Alt. TSS` = "#896090",
   `Alt. polyA` = "#d97f26",
   `Isoform ratio` = "#6a90cd",
