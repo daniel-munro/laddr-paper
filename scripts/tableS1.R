@@ -1,4 +1,4 @@
-# Number of KP, DP, and hybrid (KP + RP) xQTLs per tissue
+# Number of DP, hybrid (KP + RP), and KP xQTLs per tissue
 
 library(tidyverse)
 

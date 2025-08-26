@@ -45,20 +45,24 @@ corrs_max <- read_tsv("data/processed/latent_explicit_corrs.tsv.gz", col_types =
   mutate(PC = PC |> str_replace("PC", "") |> fct_inorder(),
          r2_max = r^2)
 
-corrs_max |>
+corrs_max_stats <- corrs_max |>
   summarise(
-    r2_max_mean = mean(r2_max),
-    r2_max_sd = sd(r2_max),
+    r2_max_05 = quantile(r2_max, 0.05),
+    r2_max_median = median(r2_max),
+    r2_max_95 = quantile(r2_max, 0.95),
     .by = c(latent, PC)
-  ) |>
+  )
+
+corrs_max_stats |>
   mutate(latent = factor(latent_types[latent], levels = latent_types)) |>
   ggplot(aes(x = PC,
-             y = r2_max_mean,
-             ymin = r2_max_mean - r2_max_sd,
-             ymax = r2_max_mean + r2_max_sd,
+             y = r2_max_median,
+             ymin = r2_max_05,
+             ymax = r2_max_95,
              color = latent)) +
   geom_pointrange(linewidth = 0.8, size = 0.3, position = position_dodge(width = 0.6)) +
-  coord_cartesian(xlim = c(0.5, 16.5), ylim = c(0, 0.7), expand = 0) +
+  scale_y_continuous(expand = c(0, 0)) +
+  expand_limits(y = 0.85) +
   scale_color_manual(values = latent_colors) +
   theme_classic() +
   theme(
