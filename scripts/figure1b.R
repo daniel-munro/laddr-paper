@@ -51,15 +51,28 @@ load_weights <- function(filename) {
 # PC <- "PC2"
 # trait <- "UKB_20022_Birth_weight"
 # window <- 0.3 # Mb up and downstream of TSS to show TWAS weights and GWAS sumstats
+# tissue <- "Geuvadis"
 ## YPEL3
-gene_id <- "ENSG00000090238"
-PC <- "PC4"
+# gene_id <- "ENSG00000090238"
+# PC <- "PC4"
+# window <- 0.5 # Mb up and downstream of TSS to show TWAS weights and GWAS sumstats
+# trait <- "Astle_et_al_2016_Eosinophil_counts"
+# tissue <- "Geuvadis"
+## IL7
+gene_id <- "ENSG00000104432"
+PC <- "PC2"
 window <- 0.5 # Mb up and downstream of TSS to show TWAS weights and GWAS sumstats
-trait <- "Astle_et_al_2016_Eosinophil_counts"
+trait <- "Astle_et_al_2016_Lymphocyte_counts"
+tissue <- "SPLEEN"
 
+DP <-str_replace(PC, "PC", "DP")
 gene_names <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cc-----") |>
   deframe()
 gene_name <- gene_names[gene_id]
+trait_names <- read_tsv("data/pantry/geuvadis/twas/gwas_metadata.txt",
+                        col_types = cols(Tag = "c", Phenotype = "c", .default = "-")) |>
+  deframe()
+trait_name <- trait_names[trait]
 
 ## Overall coverage and phenotype-stratified coverage
 
@@ -67,7 +80,7 @@ anno <- rtracklayer::import("data/ref/Homo_sapiens.GRCh38.113.chr.gtf.gz") |>
   as_tibble()
 
 covg <- read_tsv(
-  str_glue("data/analyses/twas_example/model_info/inspect.{gene_id}.Geuvadis.tsv.gz"),
+  str_glue("data/analyses/twas_example/model_info/inspect.{gene_id}.{tissue}.tsv.gz"),
   col_types = cols(gene_id = "c", pos = "i", .default = "d")
 ) |>
   mutate(bin = seq_len(n()),
@@ -113,7 +126,7 @@ p2 <- covg |>
   # xlab(str_glue("{gene_name} range (not to scale)")) +
   xlab(NULL) +
   ylab("Coverage") +
-  ggtitle(str_glue("Median and interquartile {gene_name} coverage"))
+  ggtitle(str_glue("Median and interquartile {gene_name} coverage in {tissue}"))
 
 p3 <- deciles |>
   ggplot(aes(x = bin, y = median_coverage, color = decile, group = decile_order)) +
@@ -132,14 +145,14 @@ p3 <- deciles |>
   xlab(NULL) +
   ylab("Median coverage for\nsamples in decile") +
   labs(color = "Phenotype\ndecile") +
-  ggtitle(str_glue("{PC}-stratified {gene_name} coverage"))
+  ggtitle(str_glue("{DP}-stratified {gene_name} coverage in {tissue}"))
 
 p1 / p2 / p3 + plot_layout(heights = c(1, 10, 10))
 ggsave("figures/figure1/figure1b_top.png", width = 6, height = 4, device = png)
 
 ## TWAS weights and GWAS sumstats
 
-weights <- load_weights(str_glue("data/analyses/twas_example/weights/{gene_id}__{PC}.wgt.RDat"))
+weights <- load_weights(str_glue("data/analyses/twas_example/weights/{gene_id}__{PC}.{tissue}.wgt.RDat"))
 
 gwas <- read_tsv(
   str_glue("data/analyses/twas_example/gwas/{trait}-{gene_id}.tsv.gz"),
@@ -183,7 +196,7 @@ p5 <- weights |>
   ) +
   xlab(str_glue("{unique(weights$chrom)} position (Mb)")) +
   ylab("Weight") +
-  ggtitle(str_glue("TWAS weights: {gene_name} {PC}"))
+  ggtitle(str_glue("TWAS weights: {gene_name} {DP} in {tissue}"))
 
 p6 <- gwas |>
   mutate(pos = position / 1000000) |>
@@ -198,7 +211,7 @@ p6 <- gwas |>
   ) +
   xlab(str_glue("{unique(gwas$chromosome)} position (Mb)")) +
   ylab("Z-score") +
-  ggtitle(str_glue("GWAS: {trait}"))
+  ggtitle(str_glue("GWAS: {trait_name}"))
 
 p4 / p5 / p6 + plot_layout(heights = c(1, 10, 10))
 ggsave("figures/figure1/figure1b_bottom.png", width = 5, height = 4, device = png)
