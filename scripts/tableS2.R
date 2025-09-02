@@ -1,4 +1,4 @@
-# Number of DP, RP, and KP TWAS hits per tissue per trait
+# Number of DP, rDP, and KP TWAS hits per tissue per trait
 
 library(tidyverse)
 
@@ -9,7 +9,7 @@ modalities <- c(
   alt_TSS = "KP_alt_TSS",
   alt_polyA = "KP_alt_polyA",
   stability = "KP_stability",
-  latent_residual = "RP"
+  latent_residual = "rDP"
 )
 
 traits <- read_tsv("data/pantry/geuvadis/twas/gwas_metadata.txt",
@@ -26,7 +26,7 @@ tissue_info <- read_tsv(
          tissue_name = tissueSiteDetailId)
 
 twas_geuv_dp <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
-twas_geuv_rp <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "cccdddd")
+twas_geuv_rdp <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "cccdddd")
 twas_geuv_kp <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "ccccdddd")
 
 n_dp <- twas_geuv_dp |>
@@ -36,10 +36,10 @@ n_dp <- twas_geuv_dp |>
     .by = trait
   )
 
-n_rp <- twas_geuv_rp |>
+n_rdp <- twas_geuv_rdp |>
   summarise(
-    genes_RP = n_distinct(gene_id),
-    hits_RP = n(),
+    genes_rDP = n_distinct(gene_id),
+    hits_rDP = n(),
     .by = trait
   )
 
@@ -50,9 +50,9 @@ n_kp <- twas_geuv_kp |>
     .by = trait
   )
 
-n_kp_andor_rp <- bind_rows(
+n_kp_andor_rdp <- bind_rows(
   twas_geuv_kp |> mutate(type = "KP"),
-  twas_geuv_rp |> mutate(type = "RP")
+  twas_geuv_rdp |> mutate(type = "rDP")
 ) |>
   distinct(trait, gene_id, type) |>
   summarise(
@@ -62,24 +62,24 @@ n_kp_andor_rp <- bind_rows(
   count(trait, types) |>
   complete(trait, types, fill = list(n = 0)) |>
   pivot_wider(names_from = types, values_from = n) |>
-  rename(genes_KP_no_RP = KP,
-         genes_KP_and_RP = KP_RP,
-         genes_RP_no_KP = RP) |>
-  mutate(genes_KP_or_RP = genes_KP_no_RP + genes_KP_and_RP + genes_RP_no_KP)
+  rename(genes_KP_no_rDP = KP,
+         genes_KP_and_rDP = KP_rDP,
+         genes_rDP_no_KP = rDP) |>
+  mutate(genes_KP_or_rDP = genes_KP_no_rDP + genes_KP_and_rDP + genes_rDP_no_KP)
 
 counts <- traits |>
   full_join(n_dp, by = "trait", relationship = "one-to-one") |>
-  full_join(n_rp, by = "trait", relationship = "one-to-one") |>
+  full_join(n_rdp, by = "trait", relationship = "one-to-one") |>
   full_join(n_kp, by = "trait", relationship = "one-to-one") |>
-  full_join(n_kp_andor_rp, by = "trait", relationship = "one-to-one") |>
+  full_join(n_kp_andor_rdp, by = "trait", relationship = "one-to-one") |>
   replace_na(
-    list(genes_DP = 0, hits_DP = 0, genes_RP = 0, hits_RP = 0, genes_KP = 0,
-         hits_KP = 0, genes_KP_no_RP = 0, genes_KP_and_RP = 0,
-         genes_RP_no_KP = 0, genes_KP_or_RP = 0)
+    list(genes_DP = 0, hits_DP = 0, genes_rDP = 0, hits_rDP = 0, genes_KP = 0,
+         hits_KP = 0, genes_KP_no_rDP = 0, genes_KP_and_rDP = 0,
+         genes_rDP_no_KP = 0, genes_KP_or_rDP = 0)
   ) |>
-  select(trait, trait_name, hits_DP, hits_RP, hits_KP, genes_DP, genes_RP,
-         genes_KP, genes_KP_or_RP, genes_KP_no_RP, genes_KP_and_RP,
-         genes_RP_no_KP) |>
-  arrange(desc(genes_KP_or_RP), trait)
+  select(trait, trait_name, hits_DP, hits_rDP, hits_KP, genes_DP, genes_rDP,
+         genes_KP, genes_KP_or_rDP, genes_KP_no_rDP, genes_KP_and_rDP,
+         genes_rDP_no_KP) |>
+  arrange(desc(genes_KP_or_rDP), trait)
 
 write_tsv(counts, "tables/tableS2.tsv")

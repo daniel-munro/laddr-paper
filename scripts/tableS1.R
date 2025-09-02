@@ -1,4 +1,4 @@
-# Number of DP, hybrid (KP + RP), and KP xQTLs per tissue
+# Number of DP, hybrid (KP + rDP), and KP xQTLs per tissue
 
 library(tidyverse)
 
@@ -9,7 +9,7 @@ modalities <- c(
   alt_TSS = "KP_alt_TSS",
   alt_polyA = "KP_alt_polyA",
   stability = "KP_stability",
-  latent_residual = "RP"
+  latent_residual = "rDP"
 )
 
 tissue_info <- read_tsv(

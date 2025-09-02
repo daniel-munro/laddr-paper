@@ -3,7 +3,16 @@
 library(tidyverse)
 library(patchwork)
 
-bin_in_exon <- function(gene, rel_posns, anno) {
+bin_in_exon_iso <- function(bin_grange, seqnames, starts, ends) {
+  exons_grange <- GenomicRanges::GRanges(
+    seqnames = seqnames,
+    ranges = IRanges::IRanges(start = starts, end = ends)
+  )
+  
+  GenomicRanges::countOverlaps(bin_grange, exons_grange, ignore.strand = TRUE) > 0
+}
+
+bins_in_exons_iso <- function(gene, rel_posns, anno) {
   gene_anno <- anno |>
     filter(gene_id == unique(gene))
   
@@ -24,16 +33,15 @@ bin_in_exon <- function(gene, rel_posns, anno) {
       )
     )
   
-  exons_grange <- gene_anno |>
+  gene_anno |>
     filter(type == "exon") |>
-    with(
-      GenomicRanges::GRanges(
-        seqnames = seqnames,
-        ranges = IRanges::IRanges(start = start, end = end)
-      )
+    reframe(
+      tibble(
+        bin = seq_len(length(bin_grange)),
+        in_exon = bin_in_exon_iso(bin_grange, seqnames, start, end),
+      ),
+      .by = transcript_id
     )
-  
-  GenomicRanges::countOverlaps(bin_grange, exons_grange, ignore.strand = TRUE) > 0
 }
 
 load_weights <- function(filename) {
@@ -59,11 +67,23 @@ load_weights <- function(filename) {
 # trait <- "Astle_et_al_2016_Eosinophil_counts"
 # tissue <- "Geuvadis"
 ## IL7
-gene_id <- "ENSG00000104432"
+# gene_id <- "ENSG00000104432"
+# PC <- "PC2"
+# window <- 0.5 # Mb up and downstream of TSS to show TWAS weights and GWAS sumstats
+# trait <- "Astle_et_al_2016_Lymphocyte_counts"
+# tissue <- "SPLEEN"
+## H2AZ2
+# gene_id <- "ENSG00000105968"
+# PC <- "PC3"
+# window <- 0.5 # Mb up and downstream of TSS to show TWAS weights and GWAS sumstats
+# trait <- "Astle_et_al_2016_Red_blood_cell_count"
+# tissue <- "WHLBLD"
+## ZNF844
+gene_id <- "ENSG00000223547"
 PC <- "PC2"
 window <- 0.5 # Mb up and downstream of TSS to show TWAS weights and GWAS sumstats
-trait <- "Astle_et_al_2016_Lymphocyte_counts"
-tissue <- "SPLEEN"
+trait <- "UKB_50_Standing_height"
+tissue <- "NERVET"
 
 DP <-str_replace(PC, "PC", "DP")
 gene_names <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cc-----") |>
@@ -83,8 +103,15 @@ covg <- read_tsv(
   str_glue("data/analyses/twas_example/model_info/inspect.{gene_id}.{tissue}.tsv.gz"),
   col_types = cols(gene_id = "c", pos = "i", .default = "d")
 ) |>
-  mutate(bin = seq_len(n()),
-         in_exon = bin_in_exon(gene_id, pos, anno))
+  mutate(bin = seq_len(n()))
+
+iso_bins <- bins_in_exons_iso(gene_id, covg$pos, anno)
+
+iso_ranges <- iso_bins |>
+  filter(in_exon) |>
+  summarise(start = min(bin),
+            end = max(bin),
+            .by = transcript_id)
 
 deciles <- covg |>
   select(bin,
@@ -94,11 +121,11 @@ deciles <- covg |>
          decile_order = decile |>
            fct_relevel("1", "10", "2", "9", "3", "8", "4", "7", "5", "6"))
 
-p1 <- covg |>
+p1 <- iso_bins |>
   filter(in_exon) |>
-  ggplot(aes(x = bin, y = 1)) +
-  annotate("segment", x = min(covg$bin[covg$in_exon]), xend = max(covg$bin[covg$in_exon]), y = 1, yend = 1) +
-  geom_tile(fill = "black") +
+  ggplot(aes(xmin = bin, xmax = bin + 1.2, y = transcript_id)) +
+  geom_linerange(aes(xmin = start, xmax = end), data = iso_ranges, linewidth = 0.5) +
+  geom_linerange(linewidth = 3) +
   expand_limits(x = covg$bin) +
   theme_bw() +
   theme(
@@ -107,7 +134,7 @@ p1 <- covg |>
     panel.grid = element_blank(),
     panel.border = element_blank(),
   ) +
-  xlab("Exonic coverage bins (not to scale)") +
+  xlab("Exons aligned to coverage bins (not to scale)") +
   ylab(NULL) +
   ggtitle(gene_name)
 
@@ -141,14 +168,13 @@ p3 <- deciles |>
     legend.key.height = unit(8, "pt"),
     panel.grid = element_blank(),
   ) +
-  # xlab(str_glue("{gene_name} range (not to scale)")) +
-  xlab(NULL) +
+  xlab("Bins along gene start to end") +
   ylab("Median coverage for\nsamples in decile") +
   labs(color = "Phenotype\ndecile") +
   ggtitle(str_glue("{DP}-stratified {gene_name} coverage in {tissue}"))
 
-p1 / p2 / p3 + plot_layout(heights = c(1, 10, 10))
-ggsave("figures/figure1/figure1b_top.png", width = 6, height = 4, device = png)
+p1 / p2 / p3 + plot_layout(heights = c(1, 2, 2))
+ggsave("figures/figure1/figure1b_top.png", width = 6, height = 4.5, device = png)
 
 ## TWAS weights and GWAS sumstats
 
@@ -184,11 +210,13 @@ p4 <- ggplot(exons, aes(xmin = start, xmax = end, ymin = 0, ymax = 2)) +
   ylab(NULL)
 
 p5 <- weights |>
-  mutate(pos = pos / 1000000) |>
+  mutate(pos = pos / 1e6) |>
   ggplot(aes(x = pos, y = weight)) +
   geom_vline(xintercept = tss, color = "#aaa") +
   geom_point(size = 1) +
-  coord_cartesian(xlim = c(tss - window, tss + window)) +
+  coord_cartesian(xlim = c(tss - window, tss + window),
+                  ylim = c(min(weights$weight) - 0.6, max(weights$weight) + 0.6),
+                  expand = 0) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
@@ -203,7 +231,9 @@ p6 <- gwas |>
   ggplot(aes(x = pos, y = zscore)) +
   geom_vline(xintercept = tss, color = "#aaa") +
   geom_point(size = 1) +
-  coord_cartesian(xlim = c(tss - window, tss + window)) +
+  coord_cartesian(xlim = c(tss - window, tss + window),
+                  ylim = c(min(gwas$zscore) - 1, max(gwas$zscore) + 1),
+                  expand = 0) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
@@ -214,4 +244,4 @@ p6 <- gwas |>
   ggtitle(str_glue("GWAS: {trait_name}"))
 
 p4 / p5 / p6 + plot_layout(heights = c(1, 10, 10))
-ggsave("figures/figure1/figure1b_bottom.png", width = 5, height = 4, device = png)
+ggsave("figures/figure1/figure1b_bottom.png", width = 5, height = 4.5, device = png)

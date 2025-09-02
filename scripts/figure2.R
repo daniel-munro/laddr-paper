@@ -12,7 +12,8 @@ hsq_latent <- read_tsv("data/twas/Geuvadis-latent.profile", col_types = "ciddddd
 #############
 
 # gene <- "ENSG00000170291"  # ELP5
-gene <- "ENSG00000090238"  # YPEL3
+# gene <- "ENSG00000090238"  # YPEL3
+gene <- "ENSG00000223547"  # ZNF844
 gene_names <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cc-----") |>
   deframe()
 gene_name <- gene_names[gene]
@@ -80,7 +81,7 @@ cor(t(phenos_latent), t(phenos_pantry), method = "spearman") |>
   ylab(str_glue("Data-driven phenotypes for {gene_name}")) +
   labs(fill = expression("Corr. "*(rho)))
 
-ggsave("figures/figure2/figure2a.png", width = 4.8, height = 4, device = png)
+ggsave("figures/figure2/figure2a.png", width = 3.8, height = 4, device = png)
 
 ## Show significant heritability values to the right
 
