@@ -117,18 +117,21 @@ qtls_prune <- read_tsv("data/processed/prune-BRNCTXB.qtls.tsv.gz", col_types = "
          map_group = factor(map_groups[map_group], levels = map_groups),
          pruning = fct_reorder(as.character(pruning), pruning))
 
-ylims <- qtls_prune |>
-  count(map_group, pruning) |>
-  mutate(ylim = max(n) * 1.03 / 1000, .by = map_group)
+n_qtls_100p <- qtls_prune |>
+  filter(pruning == 100) |>
+  count(map_group)
 
 qtls_prune |>
   count(map_group, pruning, modality) |>
   filter(map_group %in% c("Data-driven", "Knowledge-driven")) |>
   ggplot(aes(x = pruning, y = n / 1000, fill = modality)) +
-  facet_wrap(~map_group, scales = "free_y") +
+  # facet_wrap(~map_group, scales = "free_y") +
+  facet_wrap(~map_group) +
+  geom_hline(mapping = aes(yintercept = n / 1000), data = n_qtls_100p,
+             linetype = 2) +
   geom_col(width = 0.8) +
-  geom_point(aes(y = ylim, fill = NULL), data = ylims, color = "white", show.legend = FALSE) +
-  scale_y_continuous(breaks = c(0, 5, 10, 15, 20), expand = c(0, 0)) +
+  # scale_y_continuous(breaks = c(0, 5, 10, 15, 20), expand = expansion(mult = c(0, 0.03))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.03))) +
   scale_fill_manual(values = modality_colors) +
   theme_bw() +
   theme(

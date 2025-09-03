@@ -23,9 +23,9 @@ qtls <- bind_rows(
 
 ggplot(qtls, aes(x = tissue, y = n / 1000, fill = type)) +
   geom_col(position = "dodge") +
-  scale_y_continuous(expand = c(0, 0)) +
-  scale_fill_manual(values = c("coral", "#13918d")) +
-  expand_limits(y = max(qtls$n * 1.03 / 1000)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
+  scale_fill_manual(values = c("#ad611f", "#13918d")) +
+  # expand_limits(y = max(qtls$n * 1.03 / 1000)) +
   theme_bw() +
   theme(
     axis.text.x = element_blank(),
@@ -60,10 +60,9 @@ ggplot(qtls_wide, aes(x = `Knowledge-driven` / 1000, y = `Data-driven` / 1000, c
   geom_abline(slope = 1, intercept = 0, linetype = 3) +
   geom_point(show.legend = FALSE) +
   expand_limits(
-    x = c(0, max(qtls_wide$`Knowledge-driven`) * 1.06 / 1000),
-    y = c(0, max(qtls_wide$`Data-driven`) * 1.03 / 1000),
+    x = c(0, max(qtls_wide$`Knowledge-driven`) * 1.04 / 1000),
+    y = c(0, max(qtls_wide$`Data-driven`) * 1.04 / 1000),
   ) +
-  # scale_x_continuous(breaks = c(0, 0.5, 1)) +
   scale_y_continuous(breaks = c(0, 10, 20, 30, 40, 50, 60)) +
   scale_color_manual(values = gtex_colors) +
   coord_fixed(expand = 0) +
@@ -91,9 +90,9 @@ qtls_pc_count <- qtls_gtextcga_full |>
 qtls_pc_count |>
   ggplot(aes(x = PC, y = mean_per_tissue / 1000)) +
   geom_col(width = 0.5, fill = "black") +
-  scale_x_continuous(breaks = 1:16) +
-  scale_y_continuous(expand = c(0, 0), breaks = c(0, 2, 4, 6, 8)) +
-  expand_limits(y = 1.01 * max(qtls_pc_count$mean_per_tissue) / 1000) +
+  scale_x_continuous(expand = c(0.03, 0), breaks = 1:16) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.01)), breaks = c(0, 2, 4, 6, 8)) +
+  # expand_limits(y = 1.01 * max(qtls_pc_count$mean_per_tissue) / 1000) +
   theme_classic() +
   theme(
     axis.text = element_text(color = "black"),
@@ -158,8 +157,7 @@ twas_topmod_count |>
   ggplot(aes(x = category, y = n / 1000, fill = modality)) +
   facet_wrap(~ phenos) +
   geom_col() +
-  scale_y_continuous(expand = c(0, 0)) +
-  expand_limits(y = 1.04 * max(twas_topmod_count$n / 1000)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
   scale_fill_manual(values = modality_colors) +
   theme_bw() +
   theme(

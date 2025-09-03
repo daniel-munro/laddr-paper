@@ -32,28 +32,6 @@ covg |>
     )
 ggsave("figures/figure1/figure1a_part1.png", width = 3, height = 0.7)
 
-# ## Make multiple samples
-# mov_av <- function(x, n = 2) { stats::filter(x, rep(1 / n, n), sides = 2) }
-# colors <- c("#000000", "#555555", "#aaaaaa")
-# for (i in 1:3) {
-#     covg |>
-#         # filter(start > 17100,
-#         #        end < 18500) |>
-#         # mutate(score = score * (1 + diff(runif(length(score) + 1, -0.1, 0.1)))) |>
-#         mutate(score = score * mov_av(runif(length(score) + 1, 0.8, 1.2), 5)[3:(length(score)+2)]) |>
-#         ggplot(aes(xmin = start, xmax = end + 1, ymin = 0, ymax = score)) +
-#         geom_rect(fill = colors[i]) +
-#         theme_classic() +
-#         theme(
-#             axis.line = element_blank(),
-#             axis.ticks = element_blank(),
-#             axis.text = element_blank(),
-#             plot.margin = margin(0, 0, 0, 0),
-#         )
-#     ggsave(str_glue("figures/figure1/figure1a_part1_{i}.png"), width = 3, height = 0.7)
-#     
-# }
-
 ######################
 ## Diff of log covg ##
 ######################

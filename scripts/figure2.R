@@ -99,8 +99,7 @@ hsq_latent |>
   ggplot(aes(x = PC, y = n / 1000)) +
   geom_col(width = 0.7, fill = "black") +
   scale_x_continuous(expand = c(0, 0.2)) +
-  scale_y_continuous(expand = c(0, 0)) +
-  expand_limits(y = 10.4) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
