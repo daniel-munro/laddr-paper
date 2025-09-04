@@ -6,7 +6,7 @@ library(tidyverse)
 ## base-level coverage ##
 #########################
 
-bw <- rtracklayer::import.bw("~/GitHub/latent-rna/examples/data_input/covg_bigwig/dset1/HG00108.bw")
+bw <- rtracklayer::import.bw("~/GitHub/LaDDR/examples/data_input/covg_bigwig/dset1/HG00108.bw")
 
 covg <- as_tibble(bw) |>
     filter(start > 16790,
@@ -31,24 +31,6 @@ covg |>
         plot.margin = margin(0, 0, 0, 0),
     )
 ggsave("figures/figure1/figure1a_part1.png", width = 3, height = 0.7)
-
-######################
-## Diff of log covg ##
-######################
-
-covg |>
-    mutate(score = log2(score + 8)) |>
-    mutate(diff = c(diff(score), score[length(score)])) |>
-    ggplot(aes(xmin = start, xmax = start + 4, ymin = 0, ymax = diff)) +
-    geom_rect(fill = "black") +
-    theme_classic() +
-    theme(
-        axis.line = element_blank(),
-        axis.ticks = element_blank(),
-        axis.text = element_blank(),
-        plot.margin = margin(0, 0, 0, 0),
-    )
-ggsave("figures/figure1/figure1a_diff.png", width = 3, height = 0.7)
 
 ##########
 ## Bins ##

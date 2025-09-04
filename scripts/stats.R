@@ -180,7 +180,7 @@ genes |>
 
 # "For gene-trait pairs involving lncRNAs, the percentages were higher, at 59.9% for latent phenotype TWAS and 57.7% for explicit phenotype TWAS."
 
-# See analyses/nearby_genes/twas_nearby_genes.qmd
+# See figureS1.R
 
 ###
 

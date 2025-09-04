@@ -152,8 +152,8 @@ p2 <- covg |>
   ) +
   # xlab(str_glue("{gene_name} range (not to scale)")) +
   xlab(NULL) +
-  ylab("Coverage") +
-  ggtitle(str_glue("Median and interquartile {gene_name} coverage in {tissue}"))
+  ylab("Coverage\n(median & interquartile)") +
+  ggtitle("RNA-seq coverage")
 
 p3 <- deciles |>
   ggplot(aes(x = bin, y = median_coverage, color = decile, group = decile_order)) +
@@ -171,10 +171,10 @@ p3 <- deciles |>
   xlab("Bins along gene start to end") +
   ylab("Median coverage for\nsamples in decile") +
   labs(color = "Phenotype\ndecile") +
-  ggtitle(str_glue("{DP}-stratified {gene_name} coverage in {tissue}"))
+  ggtitle(str_glue("{DP}-stratified coverage"))
 
 p1 / p2 / p3 + plot_layout(heights = c(1, 2, 2))
-ggsave("figures/figure1/figure1b_top.png", width = 6, height = 4.5, device = png)
+ggsave("figures/figure1/figure1b_left.png", width = 6, height = 4.5, device = png)
 
 ## TWAS weights and GWAS sumstats
 
@@ -224,7 +224,7 @@ p5 <- weights |>
   ) +
   xlab(str_glue("{unique(weights$chrom)} position (Mb)")) +
   ylab("Weight") +
-  ggtitle(str_glue("TWAS weights: {gene_name} {DP} in {tissue}"))
+  ggtitle(str_glue("TWAS weights: {gene_name} {DP}"))
 
 p6 <- gwas |>
   mutate(pos = position / 1000000) |>
@@ -244,4 +244,4 @@ p6 <- gwas |>
   ggtitle(str_glue("GWAS: {trait_name}"))
 
 p4 / p5 / p6 + plot_layout(heights = c(1, 10, 10))
-ggsave("figures/figure1/figure1b_bottom.png", width = 5, height = 4.5, device = png)
+ggsave("figures/figure1/figure1b_right.png", width = 5, height = 4.5, device = png)
