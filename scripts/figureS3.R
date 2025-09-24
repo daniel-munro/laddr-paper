@@ -1,78 +1,36 @@
-## Gene-relative positions of held-out latent QTLs
+## Read length simulation QTLs
 
 library(tidyverse)
 
-modalities <- c(
-  expression = "Expression",
-  isoforms = "Isoform ratio",
-  splicing = "Intron excision",
-  alt_TSS = "Alt. TSS",
-  alt_polyA = "Alt. polyA",
-  stability = "RNA stability"
+read_types <- c(
+  `pe-75bp-100pct` = "75 bp P.E.",
+  `pe-50bp-100pct` = "50 bp P.E.",
+  `se-75bp-100pct` = "75 bp S.E. R1&2",
+  `se-50bp-100pct` = "50 bp S.E. R1&2",
+  `se1-75bp-100pct` = "75 bp S.E. R1",
+  `se1-50bp-100pct` = "50 bp S.E. R1",
+  `se2-75bp-100pct` = "75 bp S.E. R2",
+  `se2-50bp-100pct` = "50 bp S.E. R2",
+  `pe-75bp-50pct` = "75 bp P.E. 1/2 depth",
+  `pe-75bp-25pct` = "75 bp P.E. 1/4 depth"
 )
 
-modality_colors <- c(
-  Expression = "#bf4042",
-  `Isoform ratio` = "#6a90cd",
-  `Intron excision` = "#59a257",
-  `Alt. TSS` = "#896090",
-  `Alt. polyA` = "#d97f26",
-  `RNA stability` = "#ddb23c"
-)
+qtls <- read_tsv("data/processed/seqsim.qtls.tsv.gz", col_types = "cccdci") |>
+  mutate(reads = factor(read_types[reads], levels = read_types))
 
-genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-cciic") |>
-  mutate(TSS = if_else(strand == "-", end, start),
-         TES = if_else(strand == "-", start, end)) |>
-  select(gene_id, chrom, TSS, TES)
-
-qtls_rp <- read_tsv(
-  "data/processed/held_out-geuvadis.qtls.tsv.gz", col_types = "ccccdci"
-) |>
-  filter(modality == "latent_residual")
-
-original_genes <- qtls_rp |>
-  filter(held_out == "none") |>
-  distinct(gene_id) |>
-  pull()
-
-qtls_rp_new_genes <- qtls_rp |>
-  filter(held_out != "none",
-         !(gene_id %in% original_genes)) |>
-  mutate(held_out = c(modalities)[held_out] |> fct_inorder())
-
-qtls_rp_pos <- qtls_rp_new_genes |>
-  mutate(chrom = str_split_i(variant_id, "_", 1),
-         pos = str_split_i(variant_id, "_", 2) |> as.integer()) |>
-  left_join(genes, by = "gene_id") |>
-  mutate(
-    rel_pos_gene = (pos - TSS) / (TES - TSS),
-    rel_pos_TSS = if_else(TSS < TES, pos - TSS, TSS - pos),
-    rel_pos_TES = if_else(TSS < TES, pos - TES, TES - pos),
-  )
-stopifnot(all(qtls_rp_pos$chrom.x == qtls_rp_pos$chrom.y))
-
-df <- qtls_rp_pos |>
-  filter(rel_pos_gene >= -1,
-         rel_pos_gene <= 2) |>
-  mutate(modality = held_out)
-
-ggplot(df, aes(x = rel_pos_gene, fill = modality)) +
-  facet_grid(rows = vars(modality), scales = "free_y", drop = TRUE) +
-  geom_histogram(bins = 80, show.legend = FALSE) +
-  scale_fill_manual(values = modality_colors) +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 1),
-                     labels = c("Gene start", "Gene end")) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 2)) +
-  geom_vline(xintercept = c(0, 1), alpha = 0.5) +
-  geom_text(mapping = aes(label = modality), data = distinct(df, modality),
-            x = -0.95, y = Inf, hjust = 0, vjust = 1, fontface = 1) +
-  theme_classic() +
+qtls |>
+  count(reads) |>
+  mutate(rel_amount = n / n[reads == "75 bp P.E."]) |>
+  ggplot(aes(x = reads, y = rel_amount)) +
+  geom_col(width = 0.5, fill = "black") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.04)), labels = scales::label_percent()) +
+  theme_bw() +
   theme(
-    axis.text = element_text(color = "black"),
-    strip.text = element_blank(),
+    panel.grid = element_blank(),
+    axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45, color = "black"),
+    axis.text.y = element_text(color = "black"),
   ) +
-  xlab("xVariant position normalized to xGene length") +
-  ylab("No. xQTLs") +
-  ggtitle("New rDP xQTLs when holding out the indicated modality")
+  xlab("Simulated read variations") +
+  ylab("# xQTLs relative to # for 75 bp P.E.")
 
-ggsave("figures/figureS3.png", width = 6, height = 6, device = png)
+ggsave("figures/figureS3.png", width = 3.5, height = 3.6, device = png)

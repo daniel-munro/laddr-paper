@@ -28,7 +28,7 @@ modalities <- c(
 )
 
 phenos_latent <- read_tsv(
-  "data/phenos/geuvadis-full/Geuvadis-latent.bed.gz",
+  "data/phenos/gtextcga-full/NERVET-latent.bed.gz",
   col_types = cols(`#chr` = "-", start = "-", end = "-", phenotype_id = "c", .default = "d")
 ) |>
   separate_wider_delim(phenotype_id, "__", names = c("gene_id", "PC")) |>
@@ -39,7 +39,7 @@ phenos_latent <- read_tsv(
 phenos_pantry <- tibble(modality = names(modalities)) |>
   reframe(
     read_tsv(
-      str_glue("data/pantry_phenos/geuvadis/{modality}.bed.gz"),
+      str_glue("data/pantry_phenos/NERVET/{modality}.bed.gz"),
       col_types = cols(`#chr` = "-", start = "-", end = "-", phenotype_id = "c", .default = "d")
     ) |>
       mutate(gene_id = str_replace(phenotype_id, "__.+", ""), .before = 1) |>
@@ -85,7 +85,11 @@ ggsave("figures/figure2/figure2a.png", width = 3.8, height = 4, device = png)
 
 ## Show significant heritability values to the right
 
-hsq_latent |>
+hsq_latent_nervet <- read_tsv("data/twas/NERVET-latent.profile", col_types = "cidddddd-dddd-d") |>
+  separate_wider_delim(id, "__", names = c("gene_id", "PC"), cols_remove = FALSE) |>
+  mutate(PC = str_replace(PC, "PC", "") |> as.integer())
+
+hsq_latent_nervet |>
   filter(gene_id == gene) |>
   arrange(PC) |>
   select(gene_id, PC, hsq, hsq.se, hsq.pv)

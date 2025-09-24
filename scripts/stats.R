@@ -308,7 +308,7 @@ qtl_counts_seqsim <- read_tsv("data/processed/seqsim.qtls.tsv.gz", col_types = "
   count(reads) |>
   deframe()
 
-# "When we used each of these variations as input for latent RNA phenotyping and mapped cis-QTLs, we observed a relatively small drop (-6.4%) in discoveries from the 50 bp truncated reads, and larger drops from the single-end (-15%) and lowered sequencing depth (-49% for 50% of reads, -74% for 25% of reads) simulations"
+# "When we used each of these variations as input for latent RNA phenotyping and mapped cis-QTLs, we observed a relatively small drop (-2.7%) in discoveries from the 50 bp truncated reads, and larger drops from the single-end (-7.2%) and lowered sequencing depth (-41% for 50% of reads, -66% for 25% of reads) simulations"
 
 (qtl_counts_seqsim["pe-50bp-100pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100
 (qtl_counts_seqsim["se-75bp-100pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100

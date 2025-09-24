@@ -24,7 +24,7 @@ write_tsv(genes, "data/processed/pcg_and_lncrna.tsv")
 
 qtls_geuvadis <- bind_rows(
   read_tsv(
-    "data/qtl/geuvadis-residual/Geuvadis-cross_pantry.cis_independent_qtl.txt.gz",
+    "data/qtl/geuvadis/pantry-Geuvadis-cross_pantry.cis_independent_qtl.txt.gz",
     col_types = "c-----c---------cc-i"
   ) |>
     rename(gene_id = group_id) |>
@@ -33,7 +33,7 @@ qtls_geuvadis <- bind_rows(
     ) |>
     mutate(version = "residual-cross_pantry", .before = 1),
   read_tsv(
-    "data/qtl/geuvadis-residual/Geuvadis-cross_latent.cis_independent_qtl.txt.gz",
+    "data/qtl/geuvadis/geuvadis-residual-Geuvadis-cross_latent.cis_independent_qtl.txt.gz",
     col_types = "c-----c---------cc-i"
   ) |>
     rename(gene_id = group_id) |>
@@ -42,7 +42,7 @@ qtls_geuvadis <- bind_rows(
     ) |>
     mutate(version = "residual-cross_latent", .before = 1),
   read_tsv(
-    "data/qtl/geuvadis-full/Geuvadis-latent.cis_independent_qtl.txt.gz",
+    "data/qtl/geuvadis/geuvadis-full-Geuvadis-latent.cis_independent_qtl.txt.gz",
     col_types = "c-----c---------cc-i"
   ) |>
     rename(gene_id = group_id) |>
