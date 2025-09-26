@@ -6,7 +6,7 @@ library(tidyverse)
 ## Panel e ## Explicit + residual latent TWAS overlap
 #############
 
-modalities2 <- c(
+modalities <- c(
   expression = "Expression",
   isoforms = "Isoform ratio",
   splicing = "Intron excision",
@@ -17,7 +17,7 @@ modalities2 <- c(
 )
 
 # Use muted version of Pantry colors to deemphasize what is already known
-modality_colors2 <- c(
+modality_colors <- c(
   Expression = "#bf4042",
   `Isoform ratio` = "#6a90cd",
   `Intron excision` = "#59a257",
@@ -44,7 +44,7 @@ twas_panres <- bind_rows(
     select(trait, gene_id, modality, twas_p),
 ) |>
   mutate(category = categories[trait] |> fct_infreq(),
-         modality = factor(modalities2[modality], levels = modalities2))
+         modality = factor(modalities[modality], levels = modalities))
 
 twas_panres_overlap <- twas_panres |>
   mutate(modality_type = if_else(modality == "Residual DD", "latent", "explicit")) |>
@@ -64,25 +64,26 @@ twas_panres_overlap <- twas_panres |>
 twas_panres_overlap |>
   count(category, modality_hits) |>
   ggplot(aes(x = category, y = n / 1000, fill = modality_hits)) +
-  geom_col(color = "black") +
+  geom_col(position = position_stack(reverse = TRUE), width = 0.7, color = "black") +
   scale_y_continuous(expand = expansion(mult = c(0, 0.01))) +
   scale_fill_manual(values = c("white", "gray", "#444444")) +
+  coord_flip() +
   theme_classic() +
   theme(
     axis.text = element_text(color = "black"),
-    axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
+    # axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
     legend.position = "inside",
-    legend.position.inside = c(0.68, 0.7),
+    legend.position.inside = c(0.8, 0.7),
     legend.key.size = unit(9, "pt"),
     legend.text = element_text(size = 7),
-    legend.title = element_text(size = 10),
+    legend.title = element_text(size = 9),
     panel.grid = element_blank(),
   ) +
   labs(fill = "Gene's xTWAS\nhits include") +
   xlab("Trait category") +
   ylab("Gene-trait pairs with TWAS hit(s) (×1000)")
 
-ggsave("figures/figure4/figure4e.png", width = 2.3, height = 4, device = png)
+ggsave("figures/figure4/figure4e.png", width = 5, height = 2, device = png)
 
 #############
 ## Panel f ## Explicit + residual latent TWAS top hits
@@ -94,22 +95,24 @@ twas_panres_tophit <- twas_panres |>
 twas_panres_tophit |>
   count(category, modality) |>
   ggplot(aes(x = category, y = n / 1000, fill = modality)) +
-  geom_col() +
+  geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.01))) +
-  scale_fill_manual(values = modality_colors2) +
+  scale_fill_manual(values = modality_colors) +
+  coord_flip() +
   theme_classic() +
   theme(
     axis.text = element_text(color = "black"),
-    axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
+    # axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
+    legend.margin = margin_auto(0),
     legend.position = "inside",
-    legend.position.inside = c(0.7, 0.7),
-    legend.key.size = unit(9, "pt"),
+    legend.position.inside = c(0.8, 0.6),
+    legend.key.size = unit(8, "pt"),
     legend.text = element_text(size = 7),
-    legend.title = element_text(size = 10),
+    legend.title = element_text(size = 9),
     panel.grid = element_blank(),
   ) +
   labs(fill = "Modality of\npair's top hit") +
   xlab("Trait category") +
   ylab("Gene-trait pairs with TWAS hit(s) (×1000)")
 
-ggsave("figures/figure4/figure4f.png", width = 2.3, height = 4, device = png)
+ggsave("figures/figure4/figure4f.png", width = 5, height = 2, device = png)

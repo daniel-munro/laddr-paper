@@ -81,7 +81,7 @@ cor(t(phenos_latent), t(phenos_pantry), method = "spearman") |>
   ylab(str_glue("Data-driven phenotypes for {gene_name}")) +
   labs(fill = expression("Corr. "*(rho)))
 
-ggsave("figures/figure2/figure2a.png", width = 3.8, height = 4, device = png)
+ggsave("figures/figure2/figure2a.png", width = 4.5, height = 4, device = png)
 
 ## Show significant heritability values to the right
 
@@ -104,6 +104,7 @@ hsq_latent |>
   geom_col(width = 0.7, fill = "black") +
   scale_x_continuous(expand = c(0, 0.2)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
+  # coord_flip() +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
@@ -112,7 +113,7 @@ hsq_latent |>
   xlab("DP rank in gene") +
   ylab(expression("DPs with significant cis-"*h^2*" (×1000)"))
 
-ggsave("figures/figure2/figure2b.png", width = 2, height = 3, device = png)
+ggsave("figures/figure2/figure2b.png", width = 2, height = 3.9, device = png)
 
 #############
 ## Panel c ## Latent vs explicit phenotype cis-heritability
@@ -128,6 +129,16 @@ modalities <- c(
   latent = "Latent"
 )
 
+modality_colors <- c(
+  Expression = "#bf4042",
+  `Isoform ratio` = "#6a90cd",
+  `Intron excision` = "#59a257",
+  `Alt. TSS` = "#896090",
+  `Alt. polyA` = "#d97f26",
+  `RNA stability` = "#ddb23c",
+  Latent = "#13918d"
+)
+
 hsq_pantry <- read_tsv("data/pantry/processed/geuvadis.hsq.tsv.gz", col_types = "ccciddddddddddd") |>
   mutate(modality = factor(modalities[modality], levels = modalities) |>
            fct_reorder(hsq, .desc = TRUE))
@@ -137,7 +148,8 @@ p1 <- hsq_latent |>
            fct_reorder(PC) |>
            fct_lump_n(n = 10, other_level = "11+")) |>
   ggplot(aes(x = PC, y = hsq)) +
-  geom_boxplot() +
+  geom_boxplot(width = 0.5, outlier.size = 0.3, outlier.alpha = 0.5,
+               fill = fill_alpha(modality_colors["Latent"], 0.4)) +
   scale_y_log10(expand = c(0, 0), minor_breaks = c(0.01, 0.02, 0.03)) +
   expand_limits(y = c(0.0099, 1.01)) +
   theme_bw() +
@@ -145,15 +157,17 @@ p1 <- hsq_latent |>
     axis.text = element_text(color = "black"),
     panel.grid = element_blank(),
     plot.margin = margin(5.5, 0, 5.5, 5.5),
+    plot.title = element_text(hjust = 0.5, size = 11),
   ) +
   xlab("DP rank in gene") +
   ylab(expression("cis-"*h^2)) +
   ggtitle("Data-driven")
 
 p2 <- hsq_pantry |>
-  ggplot(aes(x = modality, y = hsq)) +
-  geom_boxplot() +
+  ggplot(aes(x = modality, y = hsq, fill = modality)) +
+  geom_boxplot(width = 0.5, outlier.size = 0.3, outlier.alpha = 0.5, show.legend = FALSE) +
   scale_y_log10(expand = c(0, 0)) +
+  scale_fill_manual(values = alpha(modality_colors, 0.4)) +
   expand_limits(y = c(0.0099, 1.01)) +
   theme_bw() +
   theme(
@@ -161,7 +175,8 @@ p2 <- hsq_pantry |>
     axis.text.y = element_blank(),
     axis.ticks.y = element_blank(),
     panel.grid = element_blank(),
-    plot.margin = margin(5.5, 5.5, 5.5, 0),
+    plot.margin = margin_part(l = 0),
+    plot.title = element_text(hjust = 0.5, size = 11),
   ) +
   xlab("Modality") +
   ylab(NULL) +
@@ -169,5 +184,5 @@ p2 <- hsq_pantry |>
 
 p1 + p2 + plot_layout(widths = c(11, 6))
 
-ggsave("figures/figure2/figure2c.png", width = 5, height = 4, device = png)
+ggsave("figures/figure2/figure2c.png", width = 3.75, height = 4, device = png)
 

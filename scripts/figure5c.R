@@ -1,6 +1,4 @@
-#############
-## Panel a ## Pruned annotation xQTLs
-#############
+## Pruned annotation xQTLs
 
 modalities <- c(
   latent = "Data-driven",
@@ -59,4 +57,4 @@ qtls_prune |>
   ylab("xQTLs (×1000)") +
   labs(fill = "Modality")
 
-ggsave("figures/figure5/figure5a.png", width = 5, height = 3, device = png)
+ggsave("figures/figure5/figure5c.png", width = 5, height = 3, device = png)

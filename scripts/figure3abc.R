@@ -100,4 +100,4 @@ qtls_pc_count |>
   xlab("DP rank in gene") +
   ylab("Mean xQTLs per tissue (×1000)")
 
-ggsave("figures/figure3/figure3c.png", width = 3.5, height = 3, device = png)
+ggsave("figures/figure3/figure3c.png", width = 2.75, height = 3.5, device = png)

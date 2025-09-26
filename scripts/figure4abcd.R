@@ -73,7 +73,7 @@ corrs_max_stats |>
   ylab(expression("Maximum "*r^2*" to a KP")) +
   labs(color = "Phenotype type")
 
-ggsave("figures/figure4/figure4a.png", width = 4.5, height = 3, device = png)
+ggsave("figures/figure4/figure4a.png", width = 5.5, height = 2.75, device = png)
 
 #############
 ## Panel b ## Explicit vs explicit + latent vs. full latent xQTLs
@@ -165,7 +165,7 @@ qtls_held_out |>
          held_out = if_else(held_out == 7, 7.5, held_out),
          modality = fct_rev(modality)) |>
   ggplot(aes(x = n / 1000, y = held_out, fill = modality)) +
-  geom_col(orientation = "y") +
+  geom_col(orientation = "y", width = 0.7) +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(breaks = c(1:6, 7.5), labels = rev(levels(qtls_held_out$held_out))) +
   scale_fill_manual(values = modality_colors, guide = guide_legend(reverse = TRUE)) +
@@ -178,5 +178,5 @@ qtls_held_out |>
   ylab("Modality held out        ") +
   labs(fill = "Modality")
 
-ggsave("figures/figure4/figure4d.png", width = 6, height = 2.3, device = png)
+ggsave("figures/figure4/figure4d.png", width = 5, height = 2.5, device = png)
 

@@ -1,7 +1,7 @@
 library(tidyverse)
 
 #############
-## Panel e ## Latent vs. explicit TWAS gene-trait pairs by category
+## Panel d ## Latent vs. explicit TWAS gene-trait pairs by category
 #############
 
 modalities <- c(
@@ -44,7 +44,7 @@ twas_both <- bind_rows(
     select(phenos, trait, gene_id, modality, twas_p, coloc_pp),
 ) |>
   mutate(category = categories[trait] |> fct_infreq(),
-         phenos = fct_rev(phenos))
+         phenos = phenos)
 
 twas_topmod_count <- twas_both |>
   slice_min(twas_p, n = 1, with_ties = FALSE, by = c(phenos, trait, gene_id)) |>
@@ -52,31 +52,41 @@ twas_topmod_count <- twas_both |>
   count(phenos, category, modality)
 
 twas_topmod_count |>
-  ggplot(aes(x = category, y = n / 1000, fill = modality)) +
-  facet_wrap(~ phenos) +
-  geom_col() +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
+  ggplot(aes(y = category, x = n / 1000, fill = modality)) +
+  facet_wrap(~ phenos, ncol = 1) +
+  geom_col(width = 0.6) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.04))) +
   scale_fill_manual(values = modality_colors) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
-    axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
     legend.position = "inside",
-    legend.position.inside = c(0.32, 0.7),
-    legend.key.size = unit(9, "pt"),
-    legend.text = element_text(size = 7),
-    legend.title = element_text(size = 10),
+    legend.position.inside = c(0.75, 0.25),
+    legend.key.size = unit(8, "pt"),
+    legend.margin = margin_auto(0),
+    legend.spacing.y = unit(0, "pt"),
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 10, margin = margin_auto(b = 2, unit = "pt")),
     panel.grid = element_blank(),
   ) +
-  labs(fill = "Modality of\npair's top hit") +
-  xlab("Trait category") +
-  ylab("Gene-trait pairs with TWAS hit(s)  (×1000) ")
+  labs(fill = "Modality of pair's top hit") +
+  ylab("Trait category") +
+  xlab("Gene-trait pairs with TWAS hit(s)  (×1000) ")
 
-ggsave("figures/figure3/figure3e.png", width = 4, height = 4, device = png)
+ggsave("figures/figure3/figure3d.png", width = 5, height = 3.3, device = png)
 
 #############
-## Panel f ## Latent vs. explicit colocalizing TWAS hits
+## Panel e ## Latent vs. explicit colocalizing TWAS hits
 #############
+
+category_colors <- c(
+  Anthropometric = "#1b9e77",
+  Blood = "#d95f02",
+  Cardiometabolic = "#7570b3",
+  Immune = "#e7298a",
+  `Psychiatric-neurologic` = "#66a61e",
+  Other = "#888888"
+)
 
 twas_coloc_pairs <- twas_both |>
   filter(coloc_pp >= 0.8) |>
@@ -88,23 +98,25 @@ twas_coloc_pairs <- twas_both |>
 twas_coloc_pairs |>
   ggplot(aes(x = `Knowledge-driven`, y = `Data-driven`, color = category)) +
   geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.3) +
-  geom_point() +
-  annotate("text", x = 230, y = 150, label = "y = x", color = "black") +
+  geom_point(alpha = 0.8) +
+  annotate("text", x = 230, y = 140, label = "y = x", color = "black") +
   coord_fixed() +
   scale_x_log10() +
   scale_y_log10() +
+  scale_color_manual(values = category_colors) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
     legend.box.background = element_rect(),
+    legend.margin = margin_auto(2, "pt"),
     legend.position = "inside",
-    legend.position.inside = c(0.745, 0.2),
-    legend.key.size = unit(12, "pt"),
-    legend.key.spacing = unit(3, "pt"),
+    legend.position.inside = c(0.72, 0.2),
+    legend.key.size = unit(10, "pt"),
+    legend.key.spacing = unit(0, "pt"),
     panel.grid = element_blank(),
   ) +
-  xlab("Colocalizing gene-trait pairs, KPs") +
-  ylab("Colocalizing gene-trait pairs, DPs") +
+  xlab("Coloc. gene-trait pairs, KPs") +
+  ylab("Coloc. gene-trait pairs, DPs") +
   labs(color = "Trait category")
 
-ggsave("figures/figure3/figure3f.png", width = 4, height = 4, device = png)
+ggsave("figures/figure3/figure3e.png", width = 3.5, height = 3.5, device = png)

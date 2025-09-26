@@ -15,7 +15,7 @@ modality_colors <- c(
 
 modality_labels <- c(
   latent_full = "Data-driven",
-  latent_residual = "Residual\ndata-driven",
+  latent_residual = "Residual data-driven",
   expression = "Expression",
   isoforms = "Isoform ratio",
   splicing = "Intron excision",
@@ -24,7 +24,7 @@ modality_labels <- c(
   stability = "RNA stability"
 ) |>
   enframe(name = "modality", value = "label") |>
-  mutate(modality = factor(modality, levels = modality))
+  mutate(label = factor(label, levels = label))
 
 genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-cciic") |>
   mutate(TSS = if_else(strand == "-", end, start),
@@ -32,8 +32,7 @@ genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-cciic") |>
   select(gene_id, chrom, TSS, TES)
 
 qtls <- read_tsv("data/processed/geuvadis.qtls.tsv.gz", col_types = "ccccdci") |>
-  filter(version %in% c("full-latent", "residual-cross_latent")) |>
-  mutate(modality = factor(modality, levels = names(modality_colors)))
+  filter(version %in% c("full-latent", "residual-cross_latent"))
 
 qtls_pos <- qtls |>
   mutate(chrom = str_split_i(variant_id, "_", 1),
@@ -42,16 +41,18 @@ qtls_pos <- qtls |>
   mutate(
     rel_pos_gene = (pos - TSS) / (TES - TSS),
   ) |>
+  left_join(modality_labels, by = "modality") |>
   filter(rel_pos_gene >= -1,
          rel_pos_gene <= 2)
 stopifnot(all(qtls_pos$chrom.x == qtls_pos$chrom.y))
 
 ggplot(qtls_pos, aes(x = rel_pos_gene, fill = modality)) +
-  facet_grid(rows = vars(modality), scales = "free_y", drop = TRUE) +
+  # facet_grid(rows = vars(modality), scales = "free_y", drop = TRUE) +
+  facet_wrap(~label, scales = "free_y", drop = TRUE, ncol = 1) +
   geom_histogram(bins = 100, show.legend = FALSE) +
   geom_vline(xintercept = c(0, 1), alpha = 1, linewidth = 0.3) +
-  geom_text(mapping = aes(label = label), data = modality_labels,
-            x = -0.95, y = Inf, hjust = 0, vjust = 1, fontface = 1) +
+  # geom_text(mapping = aes(label = label), data = modality_labels,
+  #           x = -0.95, y = Inf, hjust = 0, vjust = 1, fontface = 1) +
   scale_fill_manual(values = modality_colors) +
   scale_x_continuous(expand = c(0, 0), breaks = c(0, 1),
                      labels = c("Gene start", "Gene end")) +
@@ -59,9 +60,9 @@ ggplot(qtls_pos, aes(x = rel_pos_gene, fill = modality)) +
   theme_classic() +
   theme(
     axis.text = element_text(color = "black"),
-    strip.text = element_blank(),
+    # strip.text = element_blank(),
   ) +
   xlab("xVariant position normalized to xGene length") +
   ylab("No. xQTLs")
 
-ggsave("figures/figure3/figure3d.png", width = 5, height = 5, device = png)
+ggsave("figures/figure5/figure5a.png", width = 5, height = 6.75, device = png)
