@@ -314,3 +314,11 @@ qtl_counts_seqsim <- read_tsv("data/processed/seqsim.qtls.tsv.gz", col_types = "
 (qtl_counts_seqsim["se-75bp-100pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100
 (qtl_counts_seqsim["pe-75bp-50pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100
 (qtl_counts_seqsim["pe-75bp-25pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100
+
+###
+
+# "The original samples had an average of 30.1 million reads (SD 8.6 million)."
+
+read_tsv("data/seqsim/read_counts.tsv", col_types = "ci") |>
+  summarise(reads_mean = mean(reads),
+            reads_sd = sd(reads))

@@ -69,7 +69,7 @@ frac_pairs |>
   xlab("xTWAS phenotypes") +
   ylab("Gene-trait pairs w/ nearby same-trait hit")
 
-ggsave("figures/figure3/figure3g.png", width = 2.5, height = 2.9, device = png)
+ggsave("figures/figure5/figure5b.png", width = 2.5, height = 2.9, device = png)
 
 twas_pairs |>
   summarise(fraction = mean(nearby_hit),

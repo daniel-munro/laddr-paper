@@ -71,8 +71,8 @@ ggplot(qtls_wide, aes(x = `Knowledge-driven` / 1000, y = `Data-driven` / 1000, c
     axis.text = element_text(color = "black"),
     panel.grid = element_blank(),
   ) +
-  xlab("KP xQTLs (×1000)") +
-  ylab("DP xQTLs (×1000)") +
+  xlab("KDP xQTLs (×1000)") +
+  ylab("DDP xQTLs (×1000)") +
   labs(fill = NULL)
 
 ggsave("figures/figure3/figure3b.png", width = 2.5, height = 3.5, device = png)
@@ -97,7 +97,7 @@ qtls_pc_count |>
   theme(
     axis.text = element_text(color = "black"),
   ) +
-  xlab("DP rank in gene") +
+  xlab("DDP rank in gene") +
   ylab("Mean xQTLs per tissue (×1000)")
 
 ggsave("figures/figure3/figure3c.png", width = 2.75, height = 3.5, device = png)

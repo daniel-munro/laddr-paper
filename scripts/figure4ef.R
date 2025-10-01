@@ -54,10 +54,10 @@ twas_panres_overlap <- twas_panres |>
     .by = c(trait, gene_id)
   ) |>
   mutate(
-    modality_hits = c(explicit = "KP only",
-                      explicit_latent = "KP & rDP",
-                      latent = "rDP only")[modality_hits] |>
-      fct_relevel("KP only", "KP & rDP", "rDP only"),
+    modality_hits = c(explicit = "KDP only",
+                      explicit_latent = "KDP & rDDP",
+                      latent = "rDDP only")[modality_hits] |>
+      fct_relevel("KDP only", "KDP & rDDP", "rDDP only"),
     category = fct_infreq(categories[trait]),
   )
 

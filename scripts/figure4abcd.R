@@ -70,7 +70,7 @@ corrs_max_stats |>
     legend.position.inside = c(0.8, 0.8),
   ) +
   xlab("Data-driven phenotype rank per gene") +
-  ylab(expression("Maximum "*r^2*" to a KP")) +
+  ylab(expression("Maximum "*r^2*" to a KDP")) +
   labs(color = "Phenotype type")
 
 ggsave("figures/figure4/figure4a.png", width = 5.5, height = 2.75, device = png)
@@ -112,14 +112,14 @@ ggsave("figures/figure4/figure4b.png", width = 6, height = 1.8, device = png)
 ## Panel c ## GTEx xQTLs
 #############
 
-qtls_gtex_dp <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
+qtls_gtex_ddp <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
 qtls_gtex_hybrid <- read_tsv("data/processed/gtex-residual-cross.qtls.tsv.gz", col_types = "ccicccd")
-qtls_gtex_kp <- read_tsv("data/processed/gtex-pantry.qtls.tsv.gz", col_types = "ccicccd")
+qtls_gtex_kdp <- read_tsv("data/processed/gtex-pantry.qtls.tsv.gz", col_types = "ccicccd")
 
 qtls_gtex_all <- bind_rows(
-  qtls_gtex_dp |> mutate(modality = "latent_full", mapping = "Data-driven"),
-  qtls_gtex_hybrid |> mutate(mapping = "Hybrid (KP + rDP)"),
-  qtls_gtex_kp |> mutate(mapping = "Knowledge-driven"),
+  qtls_gtex_ddp |> mutate(modality = "latent_full", mapping = "Data-driven"),
+  qtls_gtex_hybrid |> mutate(mapping = "Hybrid (KDP + rDDP)"),
+  qtls_gtex_kdp |> mutate(mapping = "Knowledge-driven"),
 )
 
 tissue_order <- qtls_gtex_all |>

@@ -115,8 +115,8 @@ twas_coloc_pairs |>
     legend.key.spacing = unit(0, "pt"),
     panel.grid = element_blank(),
   ) +
-  xlab("Coloc. gene-trait pairs, KPs") +
-  ylab("Coloc. gene-trait pairs, DPs") +
+  xlab("Coloc. gene-trait pairs, KDPs") +
+  ylab("Coloc. gene-trait pairs, DDPs") +
   labs(color = "Trait category")
 
 ggsave("figures/figure3/figure3e.png", width = 3.5, height = 3.5, device = png)

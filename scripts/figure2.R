@@ -60,26 +60,30 @@ phenos_pantry <- tibble(modality = names(modalities)) |>
 
 stopifnot(identical(colnames(phenos_latent), colnames(phenos_pantry)))
 
-cor(t(phenos_latent), t(phenos_pantry), method = "spearman") |>
+phenos_corr <- cor(t(phenos_latent), t(phenos_pantry), method = "spearman") |>
   as_tibble(rownames = "PC") |>
   pivot_longer(-PC, names_to = "pantry_pheno", values_to = "rho") |>
-  mutate(PC = str_replace(PC, "PC", "DP") |> fct_inorder() |> fct_rev(),
-         pantry_pheno = fct_inorder(pantry_pheno)) |>
-  ggplot(aes(x = pantry_pheno, y = PC, fill = rho)) +
+  mutate(PC = str_replace(PC, "PC", "DDP") |> fct_inorder() |> fct_rev(),
+         pantry_pheno = fct_inorder(pantry_pheno),
+         rho_abs = abs(rho))
+
+ggplot(phenos_corr, aes(x = pantry_pheno, y = PC, fill = rho_abs)) +
   geom_tile() +
   coord_fixed(expand = 0) +
   scale_x_discrete(position = "top") +
-  scale_fill_gradient2() +
+  scale_fill_gradient(low = "white", high = "black") +
+  expand_limits(fill = c(0, 1)) +
   theme_bw() +
   theme(
     axis.text.x = element_text(hjust = 0, angle = 60, color = "black"),
     axis.text.y = element_text(color = "black"),
-    legend.box.spacing = unit(30, "pt"),
+    legend.box.spacing = unit(20, "pt"),
     panel.grid = element_blank(),
+    plot.margin = margin_auto(3),
   ) +
   xlab(str_glue("Knowledge-driven phenotypes for {gene_name}")) +
   ylab(str_glue("Data-driven phenotypes for {gene_name}")) +
-  labs(fill = expression("Corr. "*(rho)))
+  labs(fill = expression("|"*rho*"|"))
 
 ggsave("figures/figure2/figure2a.png", width = 4.5, height = 4, device = png)
 
@@ -110,10 +114,10 @@ hsq_latent |>
     axis.text = element_text(color = "black"),
     panel.grid = element_blank(),
   ) +
-  xlab("DP rank in gene") +
-  ylab(expression("DPs with significant cis-"*h^2*" (×1000)"))
+  xlab("DDP rank in gene") +
+  ylab(expression("DDPs with significant cis-"*h^2*" (×1000)"))
 
-ggsave("figures/figure2/figure2b.png", width = 2, height = 3.9, device = png)
+ggsave("figures/figure2/figure2b.png", width = 2, height = 4, device = png)
 
 #############
 ## Panel c ## Latent vs explicit phenotype cis-heritability
@@ -156,10 +160,10 @@ p1 <- hsq_latent |>
   theme(
     axis.text = element_text(color = "black"),
     panel.grid = element_blank(),
-    plot.margin = margin(5.5, 0, 5.5, 5.5),
+    plot.margin = margin_auto(0),
     plot.title = element_text(hjust = 0.5, size = 11),
   ) +
-  xlab("DP rank in gene") +
+  xlab("DDP rank in gene") +
   ylab(expression("cis-"*h^2)) +
   ggtitle("Data-driven")
 
@@ -175,7 +179,7 @@ p2 <- hsq_pantry |>
     axis.text.y = element_blank(),
     axis.ticks.y = element_blank(),
     panel.grid = element_blank(),
-    plot.margin = margin_part(l = 0),
+    plot.margin = margin_auto(0),
     plot.title = element_text(hjust = 0.5, size = 11),
   ) +
   xlab("Modality") +

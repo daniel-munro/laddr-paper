@@ -6,8 +6,8 @@ modalities <- c(
   expression = "Expression",
   isoforms = "Isoform ratio",
   splicing = "Intron excision",
-  alt_TSS = "Alt. TSS",
-  alt_polyA = "Alt. polyA",
+  alt_TSS = "Alternative TSS",
+  alt_polyA = "Alternative polyA",
   stability = "RNA stability"
 )
 
@@ -15,8 +15,8 @@ modality_colors <- c(
   Expression = "#bf4042",
   `Isoform ratio` = "#6a90cd",
   `Intron excision` = "#59a257",
-  `Alt. TSS` = "#896090",
-  `Alt. polyA` = "#d97f26",
+  `Alternative TSS` = "#896090",
+  `Alternative polyA` = "#d97f26",
   `RNA stability` = "#ddb23c"
 )
 
@@ -25,22 +25,22 @@ genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-cciic") |>
          TES = if_else(strand == "-", start, end)) |>
   select(gene_id, chrom, TSS, TES)
 
-qtls_rp <- read_tsv(
+qtls_rddp <- read_tsv(
   "data/processed/held_out-geuvadis.qtls.tsv.gz", col_types = "ccccdci"
 ) |>
   filter(modality == "latent_residual")
 
-original_genes <- qtls_rp |>
+original_genes <- qtls_rddp |>
   filter(held_out == "none") |>
   distinct(gene_id) |>
   pull()
 
-qtls_rp_new_genes <- qtls_rp |>
+qtls_rddp_new_genes <- qtls_rddp |>
   filter(held_out != "none",
          !(gene_id %in% original_genes)) |>
   mutate(held_out = c(modalities)[held_out] |> fct_inorder())
 
-qtls_rp_pos <- qtls_rp_new_genes |>
+qtls_rddp_pos <- qtls_rddp_new_genes |>
   mutate(chrom = str_split_i(variant_id, "_", 1),
          pos = str_split_i(variant_id, "_", 2) |> as.integer()) |>
   left_join(genes, by = "gene_id") |>
@@ -49,9 +49,9 @@ qtls_rp_pos <- qtls_rp_new_genes |>
     rel_pos_TSS = if_else(TSS < TES, pos - TSS, TSS - pos),
     rel_pos_TES = if_else(TSS < TES, pos - TES, TES - pos),
   )
-stopifnot(all(qtls_rp_pos$chrom.x == qtls_rp_pos$chrom.y))
+stopifnot(all(qtls_rddp_pos$chrom.x == qtls_rddp_pos$chrom.y))
 
-df <- qtls_rp_pos |>
+df <- qtls_rddp_pos |>
   filter(rel_pos_gene >= -1,
          rel_pos_gene <= 2) |>
   mutate(modality = held_out)
@@ -73,6 +73,6 @@ ggplot(df, aes(x = rel_pos_gene, fill = modality)) +
   ) +
   xlab("xVariant position normalized to xGene length") +
   ylab("No. xQTLs") +
-  ggtitle("New rDP xQTLs when holding out the indicated modality")
+  ggtitle("New rDDP xQTLs when holding out the indicated modality")
 
 ggsave("figures/figureS1.png", width = 6, height = 6, device = png)

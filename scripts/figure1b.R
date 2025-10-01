@@ -85,7 +85,7 @@ window <- 0.5 # Mb up and downstream of TSS to show TWAS weights and GWAS sumsta
 trait <- "UKB_50_Standing_height"
 tissue <- "NERVET"
 
-DP <-str_replace(PC, "PC", "DP")
+DDP <-str_replace(PC, "PC", "DDP")
 gene_names <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cc-----") |>
   deframe()
 gene_name <- gene_names[gene_id]

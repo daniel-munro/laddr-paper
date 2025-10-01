@@ -19,8 +19,8 @@ modality_labels <- c(
   expression = "Expression",
   isoforms = "Isoform ratio",
   splicing = "Intron excision",
-  alt_TSS = "Alt. TSS",
-  alt_polyA = "Alt. polyA",
+  alt_TSS = "Alternative TSS",
+  alt_polyA = "Alternative polyA",
   stability = "RNA stability"
 ) |>
   enframe(name = "modality", value = "label") |>
