@@ -53,19 +53,6 @@ qtls_geuvadis <- bind_rows(
 
 write_tsv(qtls_geuvadis, "data/processed/geuvadis.qtls.tsv.gz")
 
-# qtlassoc_gtex5_full <- tibble(tissue = tissues_gtex5) |>
-#     reframe(
-#         read_tsv(
-#             str_glue("data/qtl/gtex5-full/{tissue}-latent.cis_qtl.txt.gz"),
-#             col_types = "c-----c---------cc-c-"
-#         ),
-#         .by = tissue
-#     ) |>
-#     rename(gene_id = group_id) |>
-#     relocate(gene_id, .before = 2)
-# 
-# write_tsv(qtlassoc_gtex5_full, "data/processed/gtex5-full.qtl_assoc.tsv.gz")
-
 qtls_gtex5_full <- tibble(tissue = tissues_gtex) |>
   reframe(
     read_tsv(
@@ -235,7 +222,7 @@ write_tsv(twas_geuv_resid, "data/processed/geuvadis-residual.twas_hits.tsv.gz")
 twas_gtextcga_full <- tibble(tissue = tissues_gtex) |>
   reframe(
     read_tsv(
-      str_glue("data/twas/twas_hits.gtextcga-full-{tissue}.tsv"),
+      str_glue("data/twas/gtextcga-full/twas_hits.gtextcga-full-{tissue}.tsv"),
       col_types = "cccccccccccccccccccccccc"
     ),
     .by = tissue
@@ -249,7 +236,7 @@ write_tsv(twas_gtextcga_full, "data/processed/gtextcga-full.twas_hits.tsv.gz")
 twas_gtex_resid <- tibble(tissue = tissues_gtex) |>
   reframe(
     read_tsv(
-      str_glue("data/twas/twas_hits.gtex-residual-{tissue}.tsv"),
+      str_glue("data/twas/gtex-residual/twas_hits.gtex-residual-{tissue}.tsv"),
       col_types = "cccccccccccccccccccccccc"
     ),
     .by = tissue
@@ -274,3 +261,19 @@ twas_geuv_pantry <- tibble(modality = modalities) |>
   arrange(modality, trait, gene_id, phenotype_id)
 
 write_tsv(twas_geuv_pantry, "data/processed/geuvadis-pantry.twas_hits.tsv.gz")
+
+twas_gtex_pantry <- crossing(tissue = tissues_gtex,
+                             modality = modalities) |>
+  reframe(
+    read_tsv(
+      str_glue("data/twas/pantry/twas_hits.{tissue}.{modality}.tsv"),
+      col_types = "cccccccccccccccccccccccc"
+    ),
+    .by = c(tissue, modality)
+  ) |>
+  mutate(gene_id = str_split_i(ID, "__", i = 1)) |>
+  filter(gene_id %in% genes$gene_id) |> # Keep only PCG + lncRNA
+  select(tissue, modality, trait = TRAIT, gene_id, phenotype_id = ID, hsq = HSQ, twas_z = TWAS.Z, twas_p = TWAS.P, coloc_pp = COLOC.PP4) |>
+  arrange(tissue, modality, trait, gene_id, phenotype_id)
+
+write_tsv(twas_gtex_pantry, "data/processed/gtex-pantry.twas_hits.tsv.gz")

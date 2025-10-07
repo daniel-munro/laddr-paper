@@ -80,9 +80,9 @@ ggsave("figures/figure4/figure4a.png", width = 5.5, height = 2.75, device = png)
 #############
 
 versions <- c(
-  `residual-cross_pantry` = "KP",
-  `residual-cross_latent` = "Hybrid (KP + rDP)",
-  `full-latent` = "DP"
+  `residual-cross_pantry` = "KDP",
+  `residual-cross_latent` = "Hybrid\n(KDP + rDDP)",
+  `full-latent` = "DDP"
 )
 
 qtls_geuvadis <- read_tsv("data/processed/geuvadis.qtls.tsv.gz", col_types = "ccccdci") |>

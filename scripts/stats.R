@@ -22,7 +22,7 @@ samples |>
 
 ###
 
-phenos <- tibble(tissue = tissues_gtex) |>
+phenos_gtex_ddp <- tibble(tissue = tissues_gtex) |>
   reframe(
     read_tsv(
       str_glue("data/phenos/gtextcga-full/{tissue}-latent.phenotype_groups.txt.gz"),
@@ -34,11 +34,11 @@ phenos <- tibble(tissue = tissues_gtex) |>
 
 # "producing an average of 417,593 (SD 9,274) phenotypes per tissue across an average of 40,147 (SD 1,351) protein-coding genes."
 
-phenos |>
+phenos_gtex_ddp |>
   count(tissue) |>
   summarise(n_phenos_mean = mean(n),
             n_phenos_sd = sd(n))
-phenos |>
+phenos_gtex_ddp |>
   distinct(tissue, gene_id) |>
   count(tissue) |>
   summarise(n_phenos_mean = mean(n),
@@ -46,27 +46,27 @@ phenos |>
 
 ###
 
-qtls_gtextcga_full <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
+qtls_gtex_ddp <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
 
 # "We found 3,755 to 64,106 conditionally independent xQTLs per tissue for 3,419 to 29,007 genes."
 
-qtls_gtextcga_full |>
+qtls_gtex_ddp |>
   count(tissue, sort = TRUE) |>
   slice(1:3, 47:n())
 
-qtls_gtextcga_full |>
+qtls_gtex_ddp |>
   distinct(tissue, gene_id) |>
   count(tissue, sort = TRUE) |>
   slice(1:3, 47:n())
 
 # "finding that on average, 95% more independent cis-QTLs were found for latent RNA phenotypes than for explicit RNA phenotypes per tissue"
 
-qtls_pantry <- read_tsv("data/processed/gtex-pantry.qtls.tsv.gz", col_types = "ccicccd")
+qtls_gtex_kdp <- read_tsv("data/processed/gtex-pantry.qtls.tsv.gz", col_types = "ccicccd")
 
 full_join(
-  qtls_gtextcga_full |>
+  qtls_gtex_ddp |>
     count(tissue),
-  qtls_pantry |>
+  qtls_gtex_kdp |>
     count(tissue),
   by = "tissue",
   relationship = "one-to-one"
@@ -76,7 +76,7 @@ full_join(
 
 # "with PC1 phenotypes producing 7.4 times as many xQTLs as PC8 phenotypes and 18.6 times as many xQTLs as PC16 phenotypes"
 
-qtls_gtextcga_full |>
+qtls_gtex_ddp |>
   separate_wider_delim(phenotype_id, "__", names = c("gene", "PC")) |>
   count(PC) |>
   summarise(PC1_PC8 = n[PC == "PC1"] / n[PC == "PC8"],
@@ -86,37 +86,33 @@ qtls_gtextcga_full |>
 
 # "Compared to six-modality xTWAS at the same p-value threshold of 5⨉10-8 and using the same Geuvadis dataset for transcriptomic models, latent phenotypes resulted in nearly the same number of total associations (24,697 vs. 24,644 for six-modality), 33% more unique gene-trait pairs with associations, and 37% more unique gene-trait pairs with strong evidence of colocalization at the level of shared causal variant."
 
-twas_geuv <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
-twas_geuv_pantry <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "ccccdddd")
-twas_geuv_both <- bind_rows(
-  twas_geuv |> mutate(type = "latent"),
-  twas_geuv_pantry |> mutate(type = "explicit"),
-)
+twas_geuv_ddp <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
+twas_geuv_kdp <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "ccccdddd")
 
 bind_cols(
-  twas_geuv |>
+  twas_geuv_ddp |>
     count(name = "n_latent"),
-  twas_geuv_pantry |>
+  twas_geuv_kdp |>
     count(name = "n_explicit"),
 ) |>
   mutate(percent_inc = (n_latent / n_explicit - 1) * 100)
 
 bind_cols(
-  twas_geuv |>
+  twas_geuv_ddp |>
     distinct(gene_id, trait) |>
     count(name = "n_latent"),
-  twas_geuv_pantry |>
+  twas_geuv_kdp |>
     distinct(gene_id, trait) |>
     count(name = "n_explicit"),
 ) |>
   mutate(percent_inc = (n_latent / n_explicit - 1) * 100)
 
 bind_cols(
-  twas_geuv |>
+  twas_geuv_ddp |>
     filter(coloc_pp > 0.8) |>
     distinct(gene_id, trait) |>
     count(name = "n_latent"),
-  twas_geuv_pantry |>
+  twas_geuv_kdp |>
     filter(coloc_pp > 0.8) |>
     distinct(gene_id, trait) |>
     count(name = "n_explicit"),
@@ -125,17 +121,17 @@ bind_cols(
 
 # "Applying xTWAS to latent RNA phenotypes for 49 GTEx tissues and the same 114 traits resulted in a median of 26,501 significant TWAS associations per GTEx tissue, including a total of 64,314 unique gene-trait pairs, 28,116 of which include strongly colocalizing associations"
 
-twas_gtex <- read_tsv("data/processed/gtextcga-full.twas_hits.tsv.gz", col_types = "ccccdddd")
+twas_gtex_ddp <- read_tsv("data/processed/gtextcga-full.twas_hits.tsv.gz", col_types = "ccccdddd")
 
-twas_gtex |>
+twas_gtex_ddp |>
   count(tissue) |>
   summarise(n_median = median(n))
 
-twas_gtex |>
+twas_gtex_ddp |>
   distinct(gene_id, trait) |>
   count()
 
-twas_gtex |>
+twas_gtex_ddp |>
   filter(coloc_pp > 0.8) |>
   distinct(gene_id, trait) |>
   count()
@@ -147,9 +143,9 @@ twas_gtex |>
 genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-c----")
 
 genes |>
-  left_join(count(qtls_pantry, gene_id), by = "gene_id", relationship = "one-to-one") |>
+  left_join(count(qtls_gtex_kdp, gene_id), by = "gene_id", relationship = "one-to-one") |>
   replace_na(list(n = 0)) |>
-  mutate(n_per_tissue = n / n_distinct(qtls_pantry$tissue)) |>
+  mutate(n_per_tissue = n / n_distinct(qtls_gtex_kdp$tissue)) |>
   summarise(mean_n_per_tissue = mean(n_per_tissue),
             .by = gene_biotype)
 
@@ -168,9 +164,9 @@ anno |>
 # "While latent RNA phenotype xQTL mapping also resulted in a lower rate of independent xQTLs for lncRNAs than for protein-coding genes, there were 0.39 xQTLs per gene per tissue, which was 44% of the rate for protein-coding genes."
 
 genes |>
-  left_join(count(qtls_gtextcga_full, gene_id), by = "gene_id", relationship = "one-to-one") |>
+  left_join(count(qtls_gtex_ddp, gene_id), by = "gene_id", relationship = "one-to-one") |>
   replace_na(list(n = 0)) |>
-  mutate(n_per_tissue = n / n_distinct(qtls_gtextcga_full$tissue)) |>
+  mutate(n_per_tissue = n / n_distinct(qtls_gtex_ddp$tissue)) |>
   summarise(mean_n_per_tissue = mean(n_per_tissue),
             .by = gene_biotype)
 
@@ -207,19 +203,19 @@ corrs_max |>
 # "Explicit modalities resulted in 22,470 total xQTLs, while full latent phenotypes resulted in 30,158 xQTLs.
 # Adding residual latent phenotypes to explicit phenotypes resulted in a net increase of 9,408 xQTLs (42%) for a total of 31,878, 16,544 of which were called for explicit phenotypes and 15,334 of which were called for residual latent phenotypes"
 
-qtls_geuvadis <- read_tsv("data/processed/geuvadis.qtls.tsv.gz", col_types = "ccccdci")
+qtls_geuv <- read_tsv("data/processed/geuvadis.qtls.tsv.gz", col_types = "ccccdci")
 
-qtls_geuvadis |>
+qtls_geuv |>
   count(version)
 
-qtls_geuvadis |>
+qtls_geuv |>
   filter(version == "residual-cross_latent") |>
   mutate(is_latent = modality == "latent_residual") |>
   count(is_latent)
 
 # "In terms of unique genes represented by the xQTLs, addition of the latent residual phenotypes increased the number of xGenes from 12,872 to 16,950"
 
-qtls_geuvadis |>
+qtls_geuv |>
   distinct(version, gene_id) |>
   count(version)
 
@@ -237,24 +233,50 @@ qtls_held_out |>
 
 ###
 
-twas_pantry <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "ccc---d-")
-
-twas_resid <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "cc---d-") |>
+twas_geuv_rddp <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "cc---d-") |>
   mutate(modality = "latent", .before = 1)
 
-# "This resulted in a 37% increase in unique gene-trait association pairs"
+# "This resulted in a 58% increase in unique gene-trait association pairs"
 
-bind_rows(twas_pantry, twas_resid) |>
+bind_rows(twas_geuv_kdp, twas_geuv_rddp) |>
   summarise(latent_only = all(modality == "latent"),
             .by = c(trait, gene_id)) |>
-  with(mean(latent_only))
+  with(sum(latent_only) / sum(!latent_only))
 
 # "and residual latent phenotypes had the strongest associations for 7,655 (53%) of all unique pairs"
 
-bind_rows(twas_pantry, twas_resid) |>
+bind_rows(twas_geuv_kdp, twas_geuv_rddp) |>
   slice_min(twas_p, n = 1, with_ties = FALSE, by = c(trait, gene_id)) |>
   summarise(n_latent = sum(modality == "latent"),
             frac_latent = mean(modality == "latent"))
+
+###
+
+twas_gtex_kdp <- read_tsv("data/processed/gtex-pantry.twas_hits.tsv.gz", col_types = "cccc---d-")
+
+twas_gtex_rddp <- read_tsv("data/processed/gtex-residual.twas_hits.tsv.gz", col_types = "ccc---d-") |>
+  mutate(modality = "latent", .before = 2)
+
+# "Similarly, across GTEx tissues there was a 59% increase in unique gene-trait association pairs on average"
+
+bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
+  summarise(latent_only = all(modality == "latent"),
+            .by = c(tissue, trait, gene_id)) |>
+  summarise(n_not_latent_only = sum(!latent_only),
+            n_latent_only = sum(latent_only),
+            .by = c(tissue)) |>
+  mutate(percent_inc = n_latent_only / n_not_latent_only) |>
+  with(mean(percent_inc))
+
+# "and residual latent phenotypes had the strongest associations for 6,926 (51%) of all unique pairs on average"
+
+bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
+  slice_min(twas_p, n = 1, with_ties = FALSE, by = c(tissue, trait, gene_id)) |>
+  summarise(n_latent = sum(modality == "latent"),
+            frac_latent = mean(modality == "latent"),
+            .by = tissue) |>
+  summarise(mean_n_latent = mean(n_latent),
+            mean_frac_latent = mean(frac_latent))
 
 ###
 
@@ -262,7 +284,7 @@ qtls_gtex5_full <- read_tsv("data/processed/gtex5-full.qtls.tsv.gz", col_types =
 
 qtls_gtex_full <- read_tsv("data/processed/gtex-full.qtls.tsv.gz", col_types = "cciccd")
 
-qtl_counts <- full_join(
+qtl_counts_models <- full_join(
   qtls_gtex5_full |>
     count(tissue, name = "n_gtex5"),
   qtls_gtex_full |>
@@ -271,7 +293,7 @@ qtl_counts <- full_join(
   relationship = "one-to-one"
 ) |>
   full_join(
-    qtls_gtextcga_full |>
+    qtls_gtex_ddp |>
       count(tissue, name = "n_gtextcga"),
     by = "tissue",
     relationship = "one-to-one"
@@ -284,7 +306,7 @@ qtl_counts <- full_join(
 # Surprisingly, using 54 tissues to fit models increased the number of independent xQTLs per tissue by only 4.2% on average (Figure 4a).
 # Using 54 tissues plus 33 cancer datasets increased xQTLs by 1.7% on average compared to 54 tissues only (Figure 4b).
 
-qtl_counts |>
+qtl_counts_models |>
   summarise(
     gtex5_gtex_pct_inc_mean = mean(gtex5_gtex_pct_inc),
     gtex_gtextcga_pct_inc_mean = mean(gtex_gtextcga_pct_inc),
