@@ -140,7 +140,7 @@ twas_gtex_ddp |>
 
 # "Despite long non-coding RNAs (lncRNAs) having higher transcript complexity (i.e., splice variants per exon) than protein-coding mRNAs, xQTL mapping across six explicit modalities produced an average of 0.16 independent xQTLs per gene per tissue for lncRNAs, which is only 29% of the rate for protein-coding genes."
 
-genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-c----")
+genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "ccc----")
 
 genes |>
   left_join(count(qtls_gtex_kdp, gene_id), by = "gene_id", relationship = "one-to-one") |>
@@ -277,6 +277,41 @@ bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
             .by = tissue) |>
   summarise(mean_n_latent = mean(n_latent),
             mean_frac_latent = mean(frac_latent))
+
+###
+
+twas_examples <- tribble(
+  ~tissue,   ~gene_id,          ~trait,
+  "ADRNLG",  "ENSG00000134480", "UKB_1180_Morning_or_evening_person_chronotype",
+  "HRTLV",   "ENSG00000178882", "GLGC_Mc_TG",
+  "PNCREAS", "ENSG00000136267", "MAGIC_FastingGlucose",
+  "BRNACC",  "ENSG00000239268", "UKB_1200_Sleeplessness_or_insomnia",
+)
+
+twas_example_hits <- twas_gtex_ddp |>
+  semi_join(twas_examples, by = c("tissue", "gene_id", "trait")) |>
+  left_join(select(genes, gene_id, gene_name), by = "gene_id", relationship = "many-to-one")
+
+# Confirm they are present in rDDP hits but not in KDP hits
+
+semi_join(twas_gtex_rddp, twas_examples, by = c("tissue", "gene_id", "trait"))
+semi_join(twas_gtex_kdp, twas_examples, by = c("gene_id", "trait"))
+
+# The “Morning/evening person (chronotype)” trait had data-driven xTWAS hits for CCNH (Cyclin H) in adrenal gland tissue.
+
+filter(twas_example_hits, gene_name == "CCNH")
+
+# The “Triglycerides” trait had data-driven xTWAS hits for RFLNA (Refilin A) in heart - left ventricle.
+
+filter(twas_example_hits, gene_name == "RFLNA")
+
+# The “Fasting glucose” trait had data-driven xTWAS hits for DGKB (Diacylglycerol kinase beta) in pancreas.
+
+filter(twas_example_hits, gene_name == "DGKB")
+
+# Finally, the “Sleeplessness / insomnia” trait had data-driven xTWAS hits for LINC03051 (Long intergenic non-protein coding RNA 3051) in .
+
+filter(twas_example_hits, gene_name == "LINC03051")
 
 ###
 

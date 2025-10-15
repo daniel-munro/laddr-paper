@@ -154,35 +154,33 @@ p2 <- covg |>
     margins = margin_part(r = 0, l = 0),
     panel.grid = element_blank(),
   ) +
-  # xlab(str_glue("{gene_name} range (not to scale)")) +
   xlab(NULL) +
   ylab("Coverage") +
   ggtitle("RNA-seq coverage")
 
 p3 <- deciles |>
   ggplot(aes(x = bin, y = median_coverage, color = decile, group = decile_order)) +
-  geom_line() +
+  geom_line(key_glyph = "rect") +
   scale_y_continuous(breaks = c(0, 20, 40)) +
   scale_color_manual(values = c("#208dff","#5a92ee","#7798dd","#8c9ecc","#9da4bb",
-                                "#aaaaaa","#c9928a","#df776b","#f0554d","#fd1330"),
-                     guide = guide_legend(override.aes = list(linewidth = 1))) +
+                                "#aaaaaa","#c9928a","#df776b","#f0554d","#fd1330")) +
   theme_bw() +
   theme(
     axis.text.x = element_blank(),
     axis.text.y = element_text(color = "black"),
     axis.ticks.x = element_blank(),
-    legend.key.height = unit(8, "pt"),
-    legend.margin = margin_auto(0),
+    legend.key.height = unit(6, "pt"),
+    legend.key.width = unit(8, "pt"),
     margins = margin_part(r = 0, b = 0, l = 0),
     panel.grid = element_blank(),
   ) +
   xlab("Bins along gene start to end") +
   ylab("Coverage") +
-  labs(color = "Phenotype\ndecile") +
+  labs(color = NULL) +
   ggtitle(str_glue("{DDP}-stratified coverage"))
 
 p1 / p2 / p3 + plot_layout(heights = c(1, 2, 2))
-ggsave("figures/figure1/figure1b.png", width = 6.1, height = 4, device = png)
+ggsave("figures/figure1/figure1b.png", width = 5.5, height = 3.5, device = png)
 
 ## TWAS weights and GWAS sumstats
 
@@ -190,7 +188,7 @@ weights <- load_weights(str_glue("data/analyses/twas_example/weights/{gene_id}__
 
 gwas <- read_tsv(
   str_glue("data/analyses/twas_example/gwas/{trait}-{gene_id}.tsv.gz"),
-  col_types = cols(chromosome = "c", position = "i", zscore = "d", .default = "c")
+  col_types = cols(chromosome = "c", position = "i", zscore = "d", pvalue = "d", .default = "c")
 )
 
 gene_anno <- anno[anno$gene_id == gene_id, ]
@@ -239,12 +237,13 @@ p5 <- weights |>
 
 p6 <- gwas |>
   mutate(pos = position / 1000000) |>
-  ggplot(aes(x = pos, y = zscore)) +
+  ggplot(aes(x = pos, y = -log10(pvalue))) +
   geom_vline(xintercept = tss, color = "#aaa") +
   geom_point(size = 0.5) +
   coord_cartesian(xlim = c(tss - window, tss + window),
-                  ylim = c(min(gwas$zscore) - 1, max(gwas$zscore) + 1),
+                  ylim = c(min(-log10(gwas$pvalue)) - 1, max(-log10(gwas$pvalue)) + 1),
                   expand = 0) +
+  scale_y_continuous(breaks = c(0, 10, 20)) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
@@ -252,8 +251,8 @@ p6 <- gwas |>
     panel.grid = element_blank(),
   ) +
   xlab(str_glue("{unique(gwas$chromosome)} position (Mb)")) +
-  ylab("Z-score") +
+  ylab(expression(-log[10]*" P")) +
   ggtitle(str_glue("GWAS: {trait_name}"))
 
 p4 / p5 / p6 + plot_layout(heights = c(1, 10, 10))
-ggsave("figures/figure1/figure1c.png", width = 4.2, height = 4, device = png)
+ggsave("figures/figure1/figure1c.png", width = 5, height = 3.5, device = png)

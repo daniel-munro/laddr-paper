@@ -3,9 +3,25 @@
 library(tidyverse)
 library(patchwork)
 
-hsq_latent <- read_tsv("data/twas/Geuvadis-latent.profile", col_types = "cidddddd-dddd-d") |>
-  separate_wider_delim(id, "__", names = c("gene_id", "PC"), cols_remove = FALSE) |>
-  mutate(PC = str_replace(PC, "PC", "") |> as.integer())
+modalities <- c(
+  expression = "Expression",
+  isoforms = "Isoform ratio",
+  splicing = "Intron excision",
+  alt_TSS = "Alt. TSS",
+  alt_polyA = "Alt. polyA",
+  stability = "RNA stability",
+  latent = "Latent"
+)
+
+modality_colors <- c(
+  Expression = "#bf4042",
+  `Isoform ratio` = "#6a90cd",
+  `Intron excision` = "#59a257",
+  `Alt. TSS` = "#896090",
+  `Alt. polyA` = "#d97f26",
+  `RNA stability` = "#ddb23c",
+  Latent = "#13918d"
+)
 
 #############
 ## Panel a ## Correlation heatmap example
@@ -71,13 +87,19 @@ ggplot(phenos_corr, aes(x = pantry_pheno, y = PC, fill = rho_abs)) +
   geom_tile() +
   coord_fixed(expand = 0) +
   scale_x_discrete(position = "top") +
-  scale_fill_gradient(low = "white", high = "black") +
+  scale_fill_gradient(low = "white", high = "black", breaks = c(0, 1)) +
   expand_limits(fill = c(0, 1)) +
   theme_bw() +
   theme(
     axis.text.x = element_text(hjust = 0, angle = 60, color = "black"),
     axis.text.y = element_text(color = "black"),
-    legend.box.spacing = unit(20, "pt"),
+    legend.background = element_rect(color = "black", linewidth = 0.3),
+    legend.direction = "horizontal",
+    legend.justification = c(1, 0),
+    legend.margin = margin_auto(4),
+    legend.key.size = unit(12, "pt"),
+    legend.position = "inside",
+    legend.position.inside = c(0.95, 0.05),
     panel.grid = element_blank(),
     plot.margin = margin_auto(3),
   ) +
@@ -85,74 +107,72 @@ ggplot(phenos_corr, aes(x = pantry_pheno, y = PC, fill = rho_abs)) +
   ylab(str_glue("Data-driven phenotypes for {gene_name}")) +
   labs(fill = expression("|"*rho*"|"))
 
-ggsave("figures/figure2/figure2a.png", width = 4.5, height = 4, device = png)
-
-## Show significant heritability values to the right
-
-hsq_latent_nervet <- read_tsv("data/twas/NERVET-latent.profile", col_types = "cidddddd-dddd-d") |>
-  separate_wider_delim(id, "__", names = c("gene_id", "PC"), cols_remove = FALSE) |>
-  mutate(PC = str_replace(PC, "PC", "") |> as.integer())
-
-hsq_latent_nervet |>
-  filter(gene_id == gene) |>
-  arrange(PC) |>
-  select(gene_id, PC, hsq, hsq.se, hsq.pv)
+ggsave("figures/figure2/figure2a.png", width = 4, height = 4, device = png)
 
 #############
 ## Panel b ## Number of heritable phenotypes per PC
 #############
 
-hsq_latent |>
+hsq_latent <- read_tsv("data/twas/Geuvadis-latent.profile", col_types = "cidddddd-dddd-d") |>
+  separate_wider_delim(id, "__", names = c("gene_id", "PC"), cols_remove = FALSE) |>
+  mutate(PC = str_replace(PC, "PC", "") |> as.integer())
+
+hsq_pantry <- read_tsv("data/pantry/processed/geuvadis.hsq.tsv.gz", col_types = "ccciddddddddddd") |>
+  mutate(modality = factor(modalities[modality], levels = modalities) |>
+           fct_infreq())
+
+p1 <- hsq_latent |>
   count(PC) |>
   ggplot(aes(x = PC, y = n / 1000)) +
-  geom_col(width = 0.7, fill = "black") +
-  scale_x_continuous(expand = c(0, 0.2)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
-  # coord_flip() +
+  geom_col(width = 0.7, fill = modality_colors["Latent"]) +
+  scale_x_continuous(expand = c(0, 0.3)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  expand_limits(y = 10.5) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
     panel.grid = element_blank(),
+    plot.margin = margin_auto(0),
+    plot.title = element_text(hjust = 0.5, size = 11),
   ) +
   xlab("DDP rank in gene") +
-  ylab(expression("DDPs with significant cis-"*h^2*" (×1000)"))
+  ylab(expression("Phenotypes with cis-"*h^2*" P<0.01 (×1000)")) +
+  ggtitle("Data-driven")
 
-ggsave("figures/figure2/figure2b.png", width = 2, height = 4, device = png)
+p2 <- hsq_pantry |>
+  count(modality) |>
+  ggplot(aes(x = modality, y = n / 1000, fill = modality)) +
+  geom_col(width = 0.4, show.legend = FALSE) +
+  scale_y_continuous(expand = c(0, 0)) +
+  expand_limits(y = 10.5) +
+  scale_fill_manual(values = modality_colors) +
+  theme_bw() +
+  theme(
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45, color = "black"),
+    axis.ticks.y = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = margin_auto(l = 0, r = 2),
+    plot.title = element_text(hjust = 0.5, size = 11),
+  ) +
+  xlab("Modality") +
+  ylab(NULL) +
+  ggtitle("Knowledge-driven")
+
+p1 + p2 + plot_layout(widths = c(8, 6))
+
+ggsave("figures/figure2/figure2b.png", width = 3.25, height = 4, device = png)
 
 #############
 ## Panel c ## Latent vs explicit phenotype cis-heritability
 #############
 
-modalities <- c(
-  expression = "Expression",
-  isoforms = "Isoform ratio",
-  splicing = "Intron excision",
-  alt_TSS = "Alt. TSS",
-  alt_polyA = "Alt. polyA",
-  stability = "RNA stability",
-  latent = "Latent"
-)
-
-modality_colors <- c(
-  Expression = "#bf4042",
-  `Isoform ratio` = "#6a90cd",
-  `Intron excision` = "#59a257",
-  `Alt. TSS` = "#896090",
-  `Alt. polyA` = "#d97f26",
-  `RNA stability` = "#ddb23c",
-  Latent = "#13918d"
-)
-
-hsq_pantry <- read_tsv("data/pantry/processed/geuvadis.hsq.tsv.gz", col_types = "ccciddddddddddd") |>
-  mutate(modality = factor(modalities[modality], levels = modalities) |>
-           fct_reorder(hsq, .desc = TRUE))
-
-p1 <- hsq_latent |>
+p3 <- hsq_latent |>
   mutate(PC = as.character(PC) |>
            fct_reorder(PC) |>
-           fct_lump_n(n = 10, other_level = "11+")) |>
+           fct_lump_n(n = 9, other_level = "10+")) |>
   ggplot(aes(x = PC, y = hsq)) +
-  geom_boxplot(width = 0.5, outlier.size = 0.3, outlier.alpha = 0.5,
+  geom_boxplot(width = 0.55, outlier.size = 0.2, outlier.alpha = 0.5,
                fill = fill_alpha(modality_colors["Latent"], 0.4)) +
   scale_y_log10(expand = c(0, 0), minor_breaks = c(0.01, 0.02, 0.03)) +
   expand_limits(y = c(0.0099, 1.01)) +
@@ -167,9 +187,9 @@ p1 <- hsq_latent |>
   ylab(expression("cis-"*h^2)) +
   ggtitle("Data-driven")
 
-p2 <- hsq_pantry |>
+p4 <- hsq_pantry |>
   ggplot(aes(x = modality, y = hsq, fill = modality)) +
-  geom_boxplot(width = 0.5, outlier.size = 0.3, outlier.alpha = 0.5, show.legend = FALSE) +
+  geom_boxplot(width = 0.5, outlier.size = 0.2, outlier.alpha = 0.5, show.legend = FALSE) +
   scale_y_log10(expand = c(0, 0)) +
   scale_fill_manual(values = alpha(modality_colors, 0.4)) +
   expand_limits(y = c(0.0099, 1.01)) +
@@ -179,14 +199,14 @@ p2 <- hsq_pantry |>
     axis.text.y = element_blank(),
     axis.ticks.y = element_blank(),
     panel.grid = element_blank(),
-    plot.margin = margin_auto(0),
+    plot.margin = margin_auto(l = 0, r = 2),
     plot.title = element_text(hjust = 0.5, size = 11),
   ) +
   xlab("Modality") +
   ylab(NULL) +
   ggtitle("Knowledge-driven")
 
-p1 + p2 + plot_layout(widths = c(11, 6))
+p3 + p4 + plot_layout(widths = c(9, 6))
 
-ggsave("figures/figure2/figure2c.png", width = 3.75, height = 4, device = png)
+ggsave("figures/figure2/figure2c.png", width = 3.25, height = 4, device = png)
 
