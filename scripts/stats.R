@@ -6,6 +6,59 @@ tissues_gtex <- read_lines("data/info/tissues.gtex.txt")
 
 ###
 
+qtls_gtex_ddp <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
+
+qtls_gtex_kdp <- read_tsv("data/processed/gtex-pantry.qtls.tsv.gz", col_types = "ccicccd")
+
+qtls_gtex_rddp <- read_tsv("data/processed/gtex-residual-cross.qtls.tsv.gz", col_types = "ccicccd")
+
+qtl_counts_gtex <- full_join(
+  qtls_gtex_ddp |>
+    count(tissue, name = "n_ddp"),
+  qtls_gtex_kdp |>
+    count(tissue, name = "n_kdp"),
+  by = "tissue",
+  relationship = "one-to-one"
+) |>
+  full_join(
+    qtls_gtex_rddp |>
+      count(tissue, name = "n_rddp"),
+    by = "tissue",
+    relationship = "one-to-one"
+  )
+
+# "Applied to GTEx, LaDDR identified 95% more independent xQTLs per tissue on average than the six transcriptional regulation modes implemented in Pantry."
+
+qtl_counts_gtex |>
+  mutate(pct_more = ((n_ddp - n_kdp) / n_kdp) * 100) |>
+  summarise(ave_pct_more = mean(pct_more))
+
+# "Residualizing known modalities prior to LaDDR increased discovery by an additional 81% per tissue on average"
+
+qtl_counts_gtex |>
+  mutate(pct_more = ((n_rddp - n_ddp) / n_kdp) * 100) |>
+  summarise(ave_pct_more = mean(pct_more))
+
+###
+
+twas_gtex_ddp <- read_tsv("data/processed/gtextcga-full.twas_hits.tsv.gz", col_types = "ccccdddd")
+
+twas_gtex_kdp <- read_tsv("data/processed/gtex-pantry.twas_hits.tsv.gz", col_types = "cccc---d-")
+
+# "LaDDR uncovered 11,790 unique gene–trait pairs with significant associations per tissue on average, versus 8,579 from knowledge-driven phenotypes."
+
+twas_gtex_ddp |>
+  distinct(tissue, gene_id, trait) |>
+  count(tissue) |>
+  summarise(mean_pairs = mean(n))
+
+twas_gtex_kdp |>
+  distinct(tissue, gene_id, trait) |>
+  count(tissue) |>
+  summarise(mean_pairs = mean(n))
+
+###
+
 # "We trained RNA phenotype gene models using 28,637 samples from 54 human tissues (GTEx) and 33 human cancer types (TCGA)."
 
 samples <- read_tsv(
@@ -46,8 +99,6 @@ phenos_gtex_ddp |>
 
 ###
 
-qtls_gtex_ddp <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
-
 # "We found 3,755 to 64,106 conditionally independent xQTLs per tissue for 3,419 to 29,007 genes."
 
 qtls_gtex_ddp |>
@@ -60,8 +111,6 @@ qtls_gtex_ddp |>
   slice(1:3, 47:n())
 
 # "finding that on average, 95% more independent cis-QTLs were found for latent RNA phenotypes than for explicit RNA phenotypes per tissue"
-
-qtls_gtex_kdp <- read_tsv("data/processed/gtex-pantry.qtls.tsv.gz", col_types = "ccicccd")
 
 full_join(
   qtls_gtex_ddp |>
@@ -120,8 +169,6 @@ bind_cols(
   mutate(percent_inc = (n_latent / n_explicit - 1) * 100)
 
 # "Applying xTWAS to latent RNA phenotypes for 49 GTEx tissues and the same 114 traits resulted in a median of 26,501 significant TWAS associations per GTEx tissue, including a total of 64,314 unique gene-trait pairs, 28,116 of which include strongly colocalizing associations"
-
-twas_gtex_ddp <- read_tsv("data/processed/gtextcga-full.twas_hits.tsv.gz", col_types = "ccccdddd")
 
 twas_gtex_ddp |>
   count(tissue) |>
@@ -251,8 +298,6 @@ bind_rows(twas_geuv_kdp, twas_geuv_rddp) |>
             frac_latent = mean(modality == "latent"))
 
 ###
-
-twas_gtex_kdp <- read_tsv("data/processed/gtex-pantry.twas_hits.tsv.gz", col_types = "cccc---d-")
 
 twas_gtex_rddp <- read_tsv("data/processed/gtex-residual.twas_hits.tsv.gz", col_types = "ccc---d-") |>
   mutate(modality = "latent", .before = 2)
