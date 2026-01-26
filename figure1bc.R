@@ -44,16 +44,6 @@ bins_in_exons_iso <- function(gene, rel_posns, anno) {
     )
 }
 
-load_weights <- function(filename) {
-  load(filename)
-  i_best_model <- which.min(apply(cv.performance["pval", , drop=FALSE],2,min,na.rm=T))
-  colnames(wgt.matrix)[i_best_model] <- "weight"
-  wgt.matrix[, "weight", drop=FALSE] |>
-    as_tibble(rownames = "variant_id") |>
-    separate_wider_delim(variant_id, "_", names = c("chrom", "pos"), too_many = "drop") |>
-    mutate(pos = as.integer(pos))
-}
-
 ## ELP5
 # gene_id <- "ENSG00000170291"
 # PC <- "PC2"
@@ -113,9 +103,17 @@ iso_ranges <- iso_bins |>
             end = max(bin),
             .by = transcript_id)
 
-deciles <- covg |>
+deciles1 <- covg |>
   select(bin,
-         starts_with(str_glue("decile_{PC}_"))) |>
+         starts_with(str_glue("decile_PC1_"))) |>
+  pivot_longer(-bin, names_to = "decile", values_to = "median_coverage") |>
+  mutate(decile = str_split_i(decile, "_", 3) |> fct_inorder(),
+         decile_order = decile |>
+           fct_relevel("1", "10", "2", "9", "3", "8", "4", "7", "5", "6"))
+
+deciles2 <- covg |>
+  select(bin,
+         starts_with(str_glue("decile_PC2_"))) |>
   pivot_longer(-bin, names_to = "decile", values_to = "median_coverage") |>
   mutate(decile = str_split_i(decile, "_", 3) |> fct_inorder(),
          decile_order = decile |>
@@ -131,11 +129,10 @@ p1 <- iso_bins |>
   theme(
     axis.text = element_blank(),
     axis.ticks = element_blank(),
-    margins = margin_part(t = 0, r = 0, l = 0),
     panel.grid = element_blank(),
     panel.border = element_blank(),
   ) +
-  xlab("Exonic coverage bins (not to scale)") +
+  xlab("Isoforms scaled to align with coverage bins") +
   ylab(NULL) +
   ggtitle(gene_name)
 
@@ -151,14 +148,13 @@ p2 <- covg |>
     axis.text.x = element_blank(),
     axis.text.y = element_text(color = "black"),
     axis.ticks.x = element_blank(),
-    margins = margin_part(r = 0, l = 0),
     panel.grid = element_blank(),
   ) +
   xlab(NULL) +
   ylab("Coverage") +
   ggtitle("RNA-seq coverage")
 
-p3 <- deciles |>
+p3 <- deciles1 |>
   ggplot(aes(x = bin, y = median_coverage, color = decile, group = decile_order)) +
   geom_line(key_glyph = "rect") +
   scale_y_continuous(breaks = c(0, 20, 40)) +
@@ -171,20 +167,41 @@ p3 <- deciles |>
     axis.ticks.x = element_blank(),
     legend.key.height = unit(6, "pt"),
     legend.key.width = unit(8, "pt"),
-    margins = margin_part(r = 0, b = 0, l = 0),
+    panel.grid = element_blank(),
+  ) +
+  xlab(NULL) +
+  ylab("Coverage") +
+  labs(color = NULL) +
+  ggtitle(str_glue("DDP1-stratified coverage"))
+
+p4 <- deciles2 |>
+  ggplot(aes(x = bin, y = median_coverage, color = decile, group = decile_order)) +
+  geom_line(key_glyph = "rect") +
+  scale_y_continuous(breaks = c(0, 20, 40)) +
+  scale_color_manual(values = c("#208dff","#5a92ee","#7798dd","#8c9ecc","#9da4bb",
+                                "#aaaaaa","#c9928a","#df776b","#f0554d","#fd1330")) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(color = "black"),
+    axis.ticks.x = element_blank(),
+    legend.key.height = unit(6, "pt"),
+    legend.key.width = unit(8, "pt"),
     panel.grid = element_blank(),
   ) +
   xlab("Bins along gene start to end") +
   ylab("Coverage") +
   labs(color = NULL) +
-  ggtitle(str_glue("{DDP}-stratified coverage"))
-
-p1 / p2 / p3 + plot_layout(heights = c(1, 2, 2))
-ggsave("figures/figure1/figure1b.png", width = 5.5, height = 3.5, device = png)
+  ggtitle(str_glue("DDP2-stratified coverage"))
 
 ## TWAS weights and GWAS sumstats
 
-weights <- load_weights(str_glue("data/analyses/twas_example/weights/{gene_id}__{PC}.{tissue}.wgt.RDat"))
+xqtl <- read_tsv(
+  str_glue("data/analyses/twas_example/cis_nominal/{gene_id}__{PC}.{tissue}.tsv.gz"),
+  col_types = cols(variant_id = "c", pval_nominal = "d", .default = "-")
+) |>
+  separate_wider_delim(variant_id, "_", names = c("chrom", "pos", "ref", "alt", "b38")) |>
+  mutate(pos = as.integer(pos))
 
 gwas <- read_tsv(
   str_glue("data/analyses/twas_example/gwas/{trait}-{gene_id}.tsv.gz"),
@@ -201,7 +218,7 @@ exons <- gene_anno |>
   mutate(start = start / 1000000,
          end = end / 1000000)
 
-p4 <- ggplot(exons, aes(xmin = start, xmax = end + 2e-3, ymin = 0, ymax = 2)) +
+p5 <- ggplot(exons, aes(xmin = start, xmax = end + 2e-3, ymin = 0, ymax = 2)) +
   annotate("segment", x = min(exons$start), xend = max(exons$end), y = 1, yend = 1) +
   geom_rect(fill = "black") +
   coord_cartesian(xlim = c(tss - window, tss + window), expand = 0) +
@@ -209,50 +226,51 @@ p4 <- ggplot(exons, aes(xmin = start, xmax = end + 2e-3, ymin = 0, ymax = 2)) +
   theme(
     axis.text = element_blank(),
     axis.ticks = element_blank(),
-    margins = margin_part(t = 0, r = 0, l = 0),
+    # margins = margin_part(t = 0, r = 0, l = 0),
+    margins = margin_part(t = 20, b = 0),
     panel.grid = element_blank(),
     panel.border = element_blank(),
   ) +
   xlab(str_glue("{gene_name} location")) +
   ylab(NULL)
 
-p5 <- weights |>
+p6 <- xqtl |>
   mutate(pos = pos / 1e6) |>
-  ggplot(aes(x = pos, y = weight)) +
+  ggplot(aes(x = pos, y = -log10(pval_nominal))) +
   geom_vline(xintercept = tss, color = "#aaa") +
   geom_point(size = 0.5) +
   coord_cartesian(xlim = c(tss - window, tss + window),
-                  ylim = c(min(weights$weight) - 0.6, max(weights$weight) + 0.6),
+                  ylim = c(0, max(-log10(xqtl$pval_nominal)) + 2),
                   expand = 0) +
-  scale_y_continuous(breaks = c(0, 5)) +
+  scale_y_continuous(breaks = c(0, 5, 10)) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
-    margins = margin_part(r = 0, l = 0),
+    # margins = margin_part(r = 0, l = 0),
     panel.grid = element_blank(),
   ) +
-  xlab(str_glue("{unique(weights$chrom)} position (Mb)")) +
-  ylab("Weight") +
-  ggtitle(str_glue("TWAS model: {gene_name} {DDP}"))
+  xlab(str_glue("{unique(xqtl$chrom)} position (Mb)")) +
+  ylab(expression(-log[10]*" P")) +
+  ggtitle(str_glue("xQTL: {gene_name} {DDP}"))
 
-p6 <- gwas |>
+p7 <- gwas |>
   mutate(pos = position / 1000000) |>
   ggplot(aes(x = pos, y = -log10(pvalue))) +
   geom_vline(xintercept = tss, color = "#aaa") +
   geom_point(size = 0.5) +
   coord_cartesian(xlim = c(tss - window, tss + window),
-                  ylim = c(min(-log10(gwas$pvalue)) - 1, max(-log10(gwas$pvalue)) + 1),
+                  ylim = c(0, max(-log10(gwas$pvalue)) + 2),
                   expand = 0) +
   scale_y_continuous(breaks = c(0, 10, 20)) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
-    margins = margin_part(t = 20, r = 0, b = 0, l = 0),
+    # margins = margin_part(t = 20, r = 0, b = 0, l = 0),
     panel.grid = element_blank(),
   ) +
   xlab(str_glue("{unique(gwas$chromosome)} position (Mb)")) +
   ylab(expression(-log[10]*" P")) +
   ggtitle(str_glue("GWAS: {trait_name}"))
 
-p4 / p5 / p6 + plot_layout(heights = c(1, 10, 10))
-ggsave("figures/figure1/figure1c.png", width = 5, height = 3.5, device = png)
+p1 / p2 / p3 / p4 / p5 / p6 / p7 + plot_layout(heights = c(1, 2, 2, 2, 0.3, 2, 2))
+ggsave("figures/figure1/figure1bc.png", width = 5, height = 10, device = png)
