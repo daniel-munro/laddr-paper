@@ -1,80 +1,78 @@
-## Effect on xQTLs of including more GTEx tissues and TCGA data for latent models
+## Gene-relative positions of held-out latent QTLs
 
 library(tidyverse)
-library(patchwork)
 
-qtls_gtex5_full <- read_tsv("data/processed/gtex5-full.qtls.tsv.gz", col_types = "cciccd")
+modalities <- c(
+  expression = "Expression",
+  isoforms = "Isoform ratio",
+  splicing = "Intron excision",
+  alt_TSS = "Alternative TSS",
+  alt_polyA = "Alternative polyA",
+  stability = "RNA stability"
+)
 
-qtls_gtex_full <- read_tsv("data/processed/gtex-full.qtls.tsv.gz", col_types = "cciccd")
+modality_colors <- c(
+  Expression = "#bf4042",
+  `Isoform ratio` = "#6a90cd",
+  `Intron excision` = "#59a257",
+  `Alternative TSS` = "#896090",
+  `Alternative polyA` = "#d97f26",
+  `RNA stability` = "#ddb23c"
+)
 
-qtls_gtextcga_full <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
+genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-cciic") |>
+  mutate(TSS = if_else(strand == "-", end, start),
+         TES = if_else(strand == "-", start, end)) |>
+  select(gene_id, chrom, TSS, TES)
 
-tissues5 <- read_lines("data/info/tissues.gtex5.txt")
-
-gtex_colors <- read_tsv(
-  "data/pantry/gtex/tissueInfo.tsv",
-  col_types = cols(tissueSiteDetailAbbr = "c", colorHex = "c", .default = "-")
+qtls_rddp <- read_tsv(
+  "data/processed/held_out-geuvadis.qtls.tsv.gz", col_types = "ccccdci"
 ) |>
-  mutate(colorHex = str_c("#", colorHex)) |>
-  deframe()
+  filter(modality == "latent_residual")
 
-qtl_counts <- full_join(
-  qtls_gtex5_full |>
-    count(tissue, name = "n_gtex5"),
-  qtls_gtex_full |>
-    count(tissue, name = "n_gtex"),
-  by = "tissue",
-  relationship = "one-to-one"
-) |>
-  full_join(
-    qtls_gtextcga_full |>
-      count(tissue, name = "n_gtextcga"),
-    by = "tissue",
-    relationship = "one-to-one"
+original_genes <- qtls_rddp |>
+  filter(held_out == "none") |>
+  distinct(gene_id) |>
+  pull()
+
+qtls_rddp_new_genes <- qtls_rddp |>
+  filter(held_out != "none",
+         !(gene_id %in% original_genes)) |>
+  mutate(held_out = c(modalities)[held_out] |> fct_inorder())
+
+qtls_rddp_pos <- qtls_rddp_new_genes |>
+  mutate(chrom = str_split_i(variant_id, "_", 1),
+         pos = str_split_i(variant_id, "_", 2) |> as.integer()) |>
+  left_join(genes, by = "gene_id") |>
+  mutate(
+    rel_pos_gene = (pos - TSS) / (TES - TSS),
+    rel_pos_TSS = if_else(TSS < TES, pos - TSS, TSS - pos),
+    rel_pos_TES = if_else(TSS < TES, pos - TES, TES - pos),
   )
+stopifnot(all(qtls_rddp_pos$chrom.x == qtls_rddp_pos$chrom.y))
 
-xy_limit <- with(qtl_counts, max(n_gtex5, n_gtex, n_gtextcga)) / 1000 * 1.04
+df <- qtls_rddp_pos |>
+  filter(rel_pos_gene >= -1,
+         rel_pos_gene <= 2) |>
+  mutate(modality = held_out)
 
-p1 <- qtl_counts |>
-  mutate(in_5_tissues = if_else(tissue %in% tissues5, "True", "False")) |>
-  ggplot(aes(x = n_gtex5 / 1000, y = n_gtex / 1000, fill = tissue, shape = in_5_tissues)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.3) +
-  annotate("text", label = "y = x", x = 8, y = 7, hjust = 0) +
-  geom_point(alpha = 0.75) +
-  # scale_color_manual(values = c("black", "red")) +
-  scale_fill_manual(values = gtex_colors, guide = "none") +
-  scale_shape_manual(values = c(21, 24)) +
-  expand_limits(x = c(0, xy_limit), y = c(0, xy_limit)) +
-  coord_fixed(expand = 0) +
-  theme_bw() +
+ggplot(df, aes(x = rel_pos_gene, fill = modality)) +
+  facet_grid(rows = vars(modality), scales = "free_y", drop = TRUE) +
+  geom_histogram(bins = 80, show.legend = FALSE) +
+  scale_fill_manual(values = modality_colors) +
+  scale_x_continuous(expand = c(0, 0), breaks = c(0, 1),
+                     labels = c("Gene start", "Gene end")) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 2)) +
+  geom_vline(xintercept = c(0, 1), alpha = 0.5) +
+  geom_text(mapping = aes(label = modality), data = distinct(df, modality),
+            x = -0.95, y = Inf, hjust = 0, vjust = 1, fontface = 1) +
+  theme_classic() +
   theme(
     axis.text = element_text(color = "black"),
-    legend.position = "inside",
-    legend.position.inside = c(0.75, 0.2),
-    panel.grid = element_blank(),
+    strip.text = element_blank(),
   ) +
-  xlab("xQTLs (×1000), 5-tissue models") +
-  ylab("xQTLs (×1000), GTEx models") +
-  labs(shape = "Tissue used for\n5-tissue models")
+  xlab("xVariant position normalized to xGene length") +
+  ylab("No. xQTLs") +
+  ggtitle("New rDDP xQTLs when holding out the indicated modality")
 
-p2 <- qtl_counts |>
-  ggplot(aes(x = n_gtex / 1000, y = n_gtextcga / 1000, fill = tissue)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.3) +
-  annotate("text", label = "y = x", x = 8, y = 7, hjust = 0) +
-  geom_point(shape = 21, color = "black", alpha = 0.75, show.legend = FALSE) +
-  scale_fill_manual(values = gtex_colors) +
-  expand_limits(x = c(0, xy_limit), y = c(0, xy_limit)) +
-  coord_fixed(expand = 0) +
-  theme_bw() +
-  theme(
-    axis.text = element_text(color = "black"),
-    legend.position = "inside",
-    legend.position.inside = c(0.9, 0.1),
-    panel.grid = element_blank(),
-  ) +
-  xlab("xQTLs (×1000), GTEx models") +
-  ylab("xQTLs (×1000), GTEx + TCGA models")
-
-p1 + p2 + plot_annotation(tag_levels = "a") & theme(plot.tag = element_text(face = "bold"))
-
-ggsave("figures/figureS2.png", width = 7.5, height = 3.75, device = png)
+ggsave("figures/figureS2.png", width = 6, height = 6, device = png)
