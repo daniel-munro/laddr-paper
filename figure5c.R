@@ -1,5 +1,7 @@
 ## Pruned annotation xQTLs
 
+library(tidyverse)
+
 modalities <- c(
   latent = "Data-driven",
   alt_TSS = "Alt. TSS",
@@ -39,22 +41,26 @@ qtls_prune |>
   count(map_group, pruning, modality) |>
   filter(map_group %in% c("Data-driven", "Knowledge-driven")) |>
   ggplot(aes(x = pruning, y = n / 1000, fill = modality)) +
-  # facet_wrap(~map_group, scales = "free_y") +
   facet_wrap(~map_group) +
   geom_hline(mapping = aes(yintercept = n / 1000), data = n_qtls_100p,
              linetype = 2) +
   geom_col(width = 0.8) +
-  # scale_y_continuous(breaks = c(0, 5, 10, 15, 20), expand = expansion(mult = c(0, 0.03))) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.03))) +
   scale_fill_manual(values = modality_colors) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
-    legend.key.size = unit(12, "pt"),
+    legend.background = element_rect(color = "black", linewidth = 0.2),
+    legend.key.size = unit(9, "pt"),
+    legend.margin = margin_part(t = 2, b = 2, unit = "pt"),
+    legend.position = "inside",
+    legend.position.inside = c(0.8, 0.79),
+    legend.text = element_text(size = 7),
+    legend.title = element_text(size = 9, margin = margin(b = 2, unit = "pt")),
     panel.grid = element_blank(),
   ) +
   xlab("% of non-canonical isoforms kept") +
   ylab("xQTLs (×1000)") +
   labs(fill = "Modality")
 
-ggsave("figures/figure5/figure5c.png", width = 5, height = 3, device = png)
+ggsave("figures/figure5/figure5c.png", width = 3.5, height = 3.7, device = png)
