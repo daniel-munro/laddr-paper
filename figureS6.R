@@ -63,4 +63,4 @@ qtls_prune |>
   ylab("xQTLs (×1000)") +
   labs(fill = "Modality")
 
-ggsave("figures/figure5/figure5c.png", width = 3.5, height = 3.7, device = png)
+ggsave("figures/figureS6.png", width = 3.5, height = 3.7, device = png)

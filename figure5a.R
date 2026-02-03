@@ -65,4 +65,4 @@ ggplot(qtls_pos, aes(x = rel_pos_gene, fill = modality)) +
   xlab("xVariant position normalized to xGene length") +
   ylab("No. xQTLs")
 
-ggsave("figures/figure5/figure5a.png", width = 5, height = 6.75, device = png)
+ggsave("figures/figure5/figure5a.png", width = 4.5, height = 7, device = png)
