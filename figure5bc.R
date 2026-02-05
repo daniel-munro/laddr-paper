@@ -45,17 +45,18 @@ modality_colors <- c(
 )
 
 enrich <- read_tsv("data/analyses/enrich.finemap.tsv", col_types = "ccciiddddd") |>
-  filter(method == "pip_weighted") |>
+  filter(method == "pip_weighted",
+         count_qtls >= 0.1) |>
   mutate(modality = factor(modalities[modality], levels = modalities),
          category = factor(categories[category]) |>
            fct_reorder(if_else(modality == "Expression", log2_enrich, NA_real_), .na_rm = TRUE)
   )
 
 enrich_coloc <- read_tsv("data/analyses/enrich.finemap-coloc.tsv", col_types = "ccciiddddd") |>
-  filter(method == "pip_weighted") |>
+  filter(method == "pip_weighted",
+         count_qtls >= 0.1) |>
   mutate(modality = factor(modalities[modality], levels = modalities),
-         category = factor(categories[category]) |>
-           fct_reorder(if_else(modality == "Expression", log2_enrich, NA_real_), .na_rm = TRUE)
+         category = factor(categories[category], levels = levels(enrich$category))
   )
 
 stripes <- tibble(y = seq(1, length(levels(enrich$category)), by = 2) - 0.5)
@@ -74,6 +75,7 @@ enrich |>
             data = stripes, show.legend = FALSE) +
   geom_vline(xintercept = 0, lty = 2) +
   geom_point(size = 1.5, stroke = 0.75, fill = modality_colors["Residual DD"]) +
+  expand_limits(x = c(enrich$log2_enrich, enrich_coloc$log2_enrich)) +
   scale_color_manual(values = modality_colors) +
   scale_shape_manual(values = c(16, 17, 15, 4, 8, 5, 23)) +
   scale_y_continuous(breaks = 1:length(levels(enrich$category)),
@@ -88,11 +90,10 @@ enrich |>
     legend.key.size = unit(10, "pt"),
     legend.position = "inside",
     legend.position.inside = c(0.98, 0.05),
-    # plot.margin = unit(c(5.5, 1, 5.5, 5.5), "pt"),
   ) +
   xlab(expression(log[2]*" fold enrichment in xVariants")) +
   ylab(NULL) +
-  labs(color = "Modality", shape = "Modality")
+  labs(subtitle = "All xQTLs", color = "Modality", shape = "Modality")
 
 ggsave("figures/figure5/figure5b.png", width = 4.5, height = 3.5, device = png)
 
@@ -110,6 +111,7 @@ enrich_coloc |>
             data = stripes, show.legend = FALSE) +
   geom_vline(xintercept = 0, lty = 2) +
   geom_point(size = 1.5, stroke = 0.75, fill = modality_colors["Residual DD"]) +
+  expand_limits(x = c(enrich$log2_enrich, enrich_coloc$log2_enrich)) +
   scale_color_manual(values = modality_colors) +
   scale_shape_manual(values = c(16, 17, 15, 4, 8, 5, 23)) +
   scale_y_continuous(breaks = 1:length(levels(enrich_coloc$category)),
@@ -124,10 +126,9 @@ enrich_coloc |>
     legend.key.size = unit(10, "pt"),
     legend.position = "inside",
     legend.position.inside = c(0.98, 0.05),
-    plot.margin = unit(c(5.5, 1, 5.5, 5.5), "pt"),
   ) +
   xlab(expression(log[2]*" fold enrichment in xVariants")) +
   ylab(NULL) +
-  labs(color = "Modality", shape = "Modality")
+  labs(subtitle = "xQTLs for RNA phenotypes with colocalizing\nTWAS hits", color = "Modality", shape = "Modality")
 
-ggsave("figures/figure5/figure5c.png", width = 4.5, height = 3.5, device = png)
+ggsave("figures/figure5/figure5c.png", width = 4.5, height = 3.6, device = png)

@@ -43,7 +43,7 @@ qtl_counts_gtex |>
 
 twas_gtex_ddp <- read_tsv("data/processed/gtextcga-full.twas_hits.tsv.gz", col_types = "ccccdddd")
 
-twas_gtex_kdp <- read_tsv("data/processed/gtex-pantry.twas_hits.tsv.gz", col_types = "cccc---d-")
+twas_gtex_kdp <- read_tsv("data/processed/gtex-pantry.twas_hits.tsv.gz", col_types = "cccc---dd")
 
 # "LaDDR uncovered 11,790 unique gene–trait pairs with significant associations per tissue on average, versus 8,579 from knowledge-driven phenotypes."
 
@@ -219,6 +219,28 @@ genes |>
 
 ###
 
+# "Expression had the lowest ratio of colocalizing TWAS hits to xQTLs (), and rDDPs had the second-lowest (, Figure 5d-f)."
+
+twas_gtex_rddp <- read_tsv("data/processed/gtex-residual.twas_hits.tsv.gz", col_types = "ccc---dd") |>
+  mutate(modality = "latent_residual", .before = 2)
+
+coloc <- bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
+  summarise(
+    coloc_n = sum(coloc_pp > 0.8),
+    .by = c(tissue, modality)
+  )
+
+coloc_qtl_ratio <- qtls_gtex_rddp |>
+  count(tissue, modality, name = "n_qtls") |>
+  full_join(coloc, by = c("tissue", "modality"), relationship = "one-to-one") |>
+  mutate(ratio = coloc_n / n_qtls)
+
+coloc_qtl_ratio |>
+  summarise(mean_ratio = mean(ratio), .by = modality) |>
+  arrange(mean_ratio)
+
+###
+
 # "35.6% of latent phenotype TWAS gene-trait pairs involving protein-coding genes had a nearby gene associated with the same trait, compared to 31.4% of explicit phenotype TWAS pairs."
 
 # "For gene-trait pairs involving lncRNAs, the percentages were higher, at 59.9% for latent phenotype TWAS and 57.7% for explicit phenotype TWAS."
@@ -299,13 +321,10 @@ bind_rows(twas_geuv_kdp, twas_geuv_rddp) |>
 
 ###
 
-twas_gtex_rddp <- read_tsv("data/processed/gtex-residual.twas_hits.tsv.gz", col_types = "ccc---d-") |>
-  mutate(modality = "latent", .before = 2)
-
 # "Similarly, across GTEx tissues there was a 59% increase in unique gene-trait association pairs on average"
 
 bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
-  summarise(latent_only = all(modality == "latent"),
+  summarise(latent_only = all(modality == "latent_residual"),
             .by = c(tissue, trait, gene_id)) |>
   summarise(n_not_latent_only = sum(!latent_only),
             n_latent_only = sum(latent_only),
@@ -317,8 +336,8 @@ bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
 
 bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
   slice_min(twas_p, n = 1, with_ties = FALSE, by = c(tissue, trait, gene_id)) |>
-  summarise(n_latent = sum(modality == "latent"),
-            frac_latent = mean(modality == "latent"),
+  summarise(n_latent = sum(modality == "latent_residual"),
+            frac_latent = mean(modality == "latent_residual"),
             .by = tissue) |>
   summarise(mean_n_latent = mean(n_latent),
             mean_frac_latent = mean(frac_latent))

@@ -48,7 +48,8 @@ coloc_qtl_ratio <- qtls_rddp |>
   full_join(coloc, by = c("tissue", "modality"), relationship = "one-to-one") |>
   mutate(coloc_qtl_ratio = coloc_n / n_qtls)
 
-p1 <- ggplot(coloc_qtl_ratio, aes(x = coloc_qtl_ratio, y = modality, fill = modality)) +
+p1 <- coloc_qtl_ratio |>
+  ggplot(aes(x = coloc_qtl_ratio, y = modality, fill = modality)) +
   geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
   scale_fill_manual(values = modality_colors) +
   theme_classic() +
