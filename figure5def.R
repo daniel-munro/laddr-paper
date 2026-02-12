@@ -54,8 +54,7 @@ p1 <- coloc_qtl_ratio |>
   scale_fill_manual(values = modality_colors) +
   theme_classic() +
   xlab("No. Colocalizing TWAS hits / No. xQTLs") +
-  ylab("Modality") +
-  ggtitle(label = NULL, subtitle = "Relative colocalization ratio")
+  ylab("Modality")
 
 p2 <- coloc_qtl_ratio |>
   ggplot(aes(x = coloc_n / 1000, y = modality, fill = modality)) +
@@ -63,8 +62,7 @@ p2 <- coloc_qtl_ratio |>
   scale_fill_manual(values = modality_colors) +
   theme_classic() +
   xlab("Colocalizing TWAS hits (×1000)") +
-  ylab(NULL) +
-  ggtitle(label = NULL, subtitle = "Numerator")
+  ylab(NULL)
 
 p3 <- coloc_qtl_ratio |>
   ggplot(aes(x = n_qtls / 1000, y = modality, fill = modality)) +
@@ -72,9 +70,8 @@ p3 <- coloc_qtl_ratio |>
   scale_fill_manual(values = modality_colors) +
   theme_classic() +
   xlab("xQTLs (×1000)") +
-  ylab(NULL) +
-  ggtitle(label = NULL, subtitle = "Denominator")
+  ylab(NULL)
 
 p1 + p2 + p3
 
-ggsave("figures/figure5/figure5def.png", width = 10, height = 2, device = png)
+ggsave("figures/figure5/figure5def.png", width = 9, height = 1.7, device = png)

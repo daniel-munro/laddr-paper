@@ -35,10 +35,11 @@ qtl_counts_gtex |>
   mutate(pct_more = ((n_ddp - n_kdp) / n_kdp) * 100) |>
   summarise(ave_pct_more = mean(pct_more))
 
-# "Residualizing known modalities prior to LaDDR and combining with knowledge-driven phenotypes increased discovery by an additional 81% per tissue on average"
+# "Residualizing known modalities prior to LaDDR and combining with knowledge-driven phenotypes increased discovery by an additional 41% per tissue on average"
+# Note: this percentage is with respect to the DDP counts, not referring back to KDP counts.
 
 qtl_counts_gtex |>
-  mutate(pct_more = ((n_rddp - n_ddp) / n_kdp) * 100) |>
+  mutate(pct_more = ((n_rddp - n_ddp) / n_ddp) * 100) |>
   summarise(ave_pct_more = mean(pct_more))
 
 ###

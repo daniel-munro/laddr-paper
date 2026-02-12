@@ -56,7 +56,10 @@ twas_topmod_count |>
   facet_wrap(~ phenos, ncol = 1) +
   geom_col(width = 0.6) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.04))) +
-  scale_fill_manual(values = modality_colors) +
+  scale_fill_manual(
+    values = modality_colors,
+    breaks = setdiff(names(modality_colors), "Data-driven"),
+  ) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),

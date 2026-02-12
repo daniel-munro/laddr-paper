@@ -57,8 +57,7 @@ p1 <- coloc_genes_xgene_ratio |>
   scale_fill_manual(values = modality_colors) +
   theme_classic() +
   xlab("Genes w. colocalizing TWAS hits / xGenes") +
-  ylab("Modality") +
-  ggtitle(label = NULL, subtitle = "Relative colocalization ratio")
+  ylab("Modality")
 
 p2 <- coloc_genes_xgene_ratio |>
   ggplot(aes(x = coloc_n_genes / 1000, y = modality, fill = modality)) +
@@ -66,8 +65,7 @@ p2 <- coloc_genes_xgene_ratio |>
   scale_fill_manual(values = modality_colors) +
   theme_classic() +
   xlab("Genes w. colocalizing TWAS hits (×1000)") +
-  ylab(NULL) +
-  ggtitle(label = NULL, subtitle = "Numerator")
+  ylab(NULL)
 
 p3 <- coloc_genes_xgene_ratio |>
   ggplot(aes(x = n_xgenes / 1000, y = modality, fill = modality)) +
@@ -75,8 +73,7 @@ p3 <- coloc_genes_xgene_ratio |>
   scale_fill_manual(values = modality_colors) +
   theme_classic() +
   xlab("xGenes (×1000)") +
-  ylab(NULL) +
-  ggtitle(label = NULL, subtitle = "Denominator")
+  ylab(NULL)
 
 ####################
 ## Panels d, e, f ## Top coloc TWAS to top xQTL ratio
@@ -100,8 +97,7 @@ p4 <- coloc_top_qtl_ratio |>
   scale_fill_manual(values = modality_colors) +
   theme_classic() +
   xlab("Top colocalizing TWAS hits / Top xQTLs") +
-  ylab("Modality") +
-  ggtitle(label = NULL, subtitle = "Relative colocalization ratio")
+  ylab("Modality")
 
 p5 <- coloc_top_qtl_ratio |>
   ggplot(aes(x = coloc_top_n / 1000, y = modality, fill = modality)) +
@@ -109,8 +105,7 @@ p5 <- coloc_top_qtl_ratio |>
   scale_fill_manual(values = modality_colors) +
   theme_classic() +
   xlab("Top colocalizing TWAS hits (×1000)") +
-  ylab(NULL) +
-  ggtitle(label = NULL, subtitle = "Numerator")
+  ylab(NULL)
 
 p6 <- coloc_top_qtl_ratio |>
   ggplot(aes(x = n_top_qtls / 1000, y = modality, fill = modality)) +
@@ -118,11 +113,10 @@ p6 <- coloc_top_qtl_ratio |>
   scale_fill_manual(values = modality_colors) +
   theme_classic() +
   xlab("Top xQTLs (×1000)") +
-  ylab(NULL) +
-  ggtitle(label = NULL, subtitle = "Denominator")
+  ylab(NULL)
 
 (p1 + p2 + p3) / plot_spacer() / (p4 + p5 + p6) +
   plot_layout(heights = c(6, 1, 6)) +
   plot_annotation(tag_levels = "a")
 
-ggsave("figures/figureS3.png", width = 10, height = 4.5, device = png)
+ggsave("figures/figureS3.png", width = 10, height = 4, device = png)
