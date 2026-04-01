@@ -46,7 +46,10 @@ qtls_prune |>
              linetype = 2) +
   geom_col(width = 0.8) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.03))) +
-  scale_fill_manual(values = modality_colors) +
+  scale_fill_manual(
+    values = modality_colors,
+    breaks = setdiff(names(modality_colors), "Data-driven"),
+  ) +
   theme_bw() +
   theme(
     axis.text = element_text(color = "black"),

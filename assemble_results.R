@@ -200,7 +200,7 @@ write_tsv(qtls_seqsim, "data/processed/seqsim.qtls.tsv.gz")
 ##########
 
 twas_geuv_full <- read_tsv(
-  "data/twas/twas_hits.geuvadis-full-Geuvadis.tsv",
+  "data/twas/twas_hits.geuvadis-full-Geuvadis.tsv.gz",
   col_types = "cccccccccccccccccccccccc"
 ) |>
   mutate(gene_id = str_split_i(ID, "__", i = 1)) |>
@@ -210,7 +210,7 @@ twas_geuv_full <- read_tsv(
 write_tsv(twas_geuv_full, "data/processed/geuvadis-full.twas_hits.tsv.gz")
 
 twas_geuv_resid <- read_tsv(
-  "data/twas/twas_hits.geuvadis-residual-Geuvadis.tsv",
+  "data/twas/twas_hits.geuvadis-residual-Geuvadis.tsv.gz",
   col_types = "cccccccccccccccccccccccc"
 ) |>
   mutate(gene_id = str_split_i(ID, "__", i = 1)) |>
@@ -222,7 +222,7 @@ write_tsv(twas_geuv_resid, "data/processed/geuvadis-residual.twas_hits.tsv.gz")
 twas_gtextcga_full <- tibble(tissue = tissues_gtex) |>
   reframe(
     read_tsv(
-      str_glue("data/twas/gtextcga-full/twas_hits.gtextcga-full-{tissue}.tsv"),
+      str_glue("data/twas/gtextcga-full/twas_hits.gtextcga-full-{tissue}.tsv.gz"),
       col_types = "cccccccccccccccccccccccc"
     ),
     .by = tissue
@@ -236,7 +236,7 @@ write_tsv(twas_gtextcga_full, "data/processed/gtextcga-full.twas_hits.tsv.gz")
 twas_gtex_resid <- tibble(tissue = tissues_gtex) |>
   reframe(
     read_tsv(
-      str_glue("data/twas/gtex-residual/twas_hits.gtex-residual-{tissue}.tsv"),
+      str_glue("data/twas/gtex-residual/twas_hits.gtex-residual-{tissue}.tsv.gz"),
       col_types = "cccccccccccccccccccccccc"
     ),
     .by = tissue
@@ -250,7 +250,7 @@ write_tsv(twas_gtex_resid, "data/processed/gtex-residual.twas_hits.tsv.gz")
 twas_geuv_pantry <- tibble(modality = modalities) |>
   reframe(
     read_tsv(
-      str_glue("data/twas/geuvadis-pantry/twas_hits.Geuvadis.{modality}.tsv"),
+      str_glue("data/twas/pantry/twas_hits.GEUVADIS.{modality}.tsv.gz"),
       col_types = "cccccccccccccccccccccccc"
     ),
     .by = modality
@@ -266,7 +266,7 @@ twas_gtex_pantry <- crossing(tissue = tissues_gtex,
                              modality = modalities) |>
   reframe(
     read_tsv(
-      str_glue("data/twas/pantry/twas_hits.{tissue}.{modality}.tsv"),
+      str_glue("data/twas/pantry/twas_hits.{tissue}.{modality}.tsv.gz"),
       col_types = "cccccccccccccccccccccccc"
     ),
     .by = c(tissue, modality)

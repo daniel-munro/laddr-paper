@@ -323,7 +323,7 @@ filter(twas_example_hits, gene_name == "RFLNA")
 
 filter(twas_example_hits, gene_name == "DGKB")
 
-# Finally, the "Sleeplessness / insomnia" trait had data-driven xTWAS hits for LINC03051 (Long intergenic non-protein coding RNA 3051) in .
+# Finally, the "Sleeplessness / insomnia" trait had data-driven xTWAS hits for LINC03051 (Long intergenic non-protein coding RNA 3051) in the anterior cingulate cortex (BA24).
 
 filter(twas_example_hits, gene_name == "LINC03051")
 
