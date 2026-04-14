@@ -1,80 +1,78 @@
-## Effect on xQTLs of including more GTEx tissues and TCGA data for latent models
+## Percentage of xTWAS hits shared with nearby genes
 
 library(tidyverse)
-library(patchwork)
+library(GenomicRanges)
 
-qtls_gtex5_full <- read_tsv("data/processed/gtex5-full.qtls.tsv.gz", col_types = "cciccd")
+has_nearby_hits <- function(chrom, start, end, distance) {
+  # Create GRanges object from input vectors
+  gr <- GRanges(seqnames = chrom,
+                ranges   = IRanges(start, end))
+  
+  # Find overlaps within the specified distance
+  # First, expand each range by the distance on both sides
+  gr_expanded <- gr + distance
+  
+  # Find overlaps between expanded ranges
+  overlaps <- findOverlaps(gr_expanded, gr_expanded)
+  
+  # Remove self-overlaps
+  overlaps <- overlaps[queryHits(overlaps) != subjectHits(overlaps)]
+  
+  has_nearby <- logical(length(gr))
+  if (length(overlaps) > 0) {
+    has_nearby[queryHits(overlaps)] <- TRUE
+  }
+  
+  return(has_nearby)
+}
 
-qtls_gtex_full <- read_tsv("data/processed/gtex-full.qtls.tsv.gz", col_types = "cciccd")
+pheno_colors <- c(DDP = "#13918d", KDP = "#ad611f")
 
-qtls_gtextcga_full <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
+genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cccciic") |>
+  select(gene_id, gene_biotype, chrom, start, end)
 
-tissues5 <- read_lines("data/info/tissues.gtex5.txt")
+twas_ddp <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
+twas_kdp <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "ccccdddd")
 
-gtex_colors <- read_tsv(
-  "data/pantry/gtex/tissueInfo.tsv",
-  col_types = cols(tissueSiteDetailAbbr = "c", colorHex = "c", .default = "-")
+twas_pairs <- bind_rows(
+  twas_ddp |>
+    summarise(has_coloc_hit = any(coloc_pp >= 0.8),
+              .by = c(trait, gene_id)) |>
+    mutate(phenos = "DDP", .before = 1),
+  twas_kdp |>
+    summarise(has_coloc_hit = any(coloc_pp >= 0.8),
+              .by = c(trait, gene_id)) |>
+    mutate(phenos = "KDP", .before = 1),
 ) |>
-  mutate(colorHex = str_c("#", colorHex)) |>
-  deframe()
+  left_join(genes, by = "gene_id", relationship = "many-to-one") |>
+  mutate(nearby_hit = has_nearby_hits(chrom, start, end, 0),
+         .by = c(phenos, trait))
 
-qtl_counts <- full_join(
-  qtls_gtex5_full |>
-    count(tissue, name = "n_gtex5"),
-  qtls_gtex_full |>
-    count(tissue, name = "n_gtex"),
-  by = "tissue",
-  relationship = "one-to-one"
-) |>
-  full_join(
-    qtls_gtextcga_full |>
-      count(tissue, name = "n_gtextcga"),
-    by = "tissue",
-    relationship = "one-to-one"
-  )
+frac_pairs <- twas_pairs |>
+  summarise(frac_nearby_hit = mean(nearby_hit),
+            ci95_low = frac_nearby_hit - qnorm(0.975) * sd(nearby_hit) / sqrt(n()),
+            ci95_hi = frac_nearby_hit + qnorm(0.975) * sd(nearby_hit) / sqrt(n()),
+            .by = c(phenos, gene_biotype))
 
-xy_limit <- with(qtl_counts, max(n_gtex5, n_gtex, n_gtextcga)) / 1000 * 1.04
-
-p1 <- qtl_counts |>
-  mutate(in_5_tissues = if_else(tissue %in% tissues5, "True", "False")) |>
-  ggplot(aes(x = n_gtex5 / 1000, y = n_gtex / 1000, fill = tissue, shape = in_5_tissues)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.3) +
-  annotate("text", label = "y = x", x = 8, y = 7, hjust = 0) +
-  geom_point(alpha = 0.75) +
-  # scale_color_manual(values = c("black", "red")) +
-  scale_fill_manual(values = gtex_colors, guide = "none") +
-  scale_shape_manual(values = c(21, 24)) +
-  expand_limits(x = c(0, xy_limit), y = c(0, xy_limit)) +
-  coord_fixed(expand = 0) +
-  theme_bw() +
+frac_pairs |>
+  mutate(gene_biotype = str_replace(gene_biotype, "_", "-") |> fct_rev(),
+         phenos = phenos) |>
+  ggplot(aes(x = phenos, y = frac_nearby_hit, ymin = ci95_low, ymax = ci95_hi, fill = phenos)) +
+  facet_wrap(~gene_biotype) +
+  geom_col(width = 0.5, show.legend = FALSE) +
+  geom_errorbar(width = 0.25) +
+  expand_limits(y = 1) +
+  scale_y_continuous(expand = c(0, 0), labels = scales::label_percent()) +
+  scale_fill_manual(values = pheno_colors) +
+  theme_classic() +
   theme(
     axis.text = element_text(color = "black"),
-    legend.position = "inside",
-    legend.position.inside = c(0.75, 0.2),
-    panel.grid = element_blank(),
   ) +
-  xlab("xQTLs (×1000), 5-tissue models") +
-  ylab("xQTLs (×1000), GTEx models") +
-  labs(shape = "Tissue used for\n5-tissue models")
+  xlab("xTWAS phenotypes") +
+  ylab("Gene-trait pairs w/ nearby\nsame-trait TWAS hit")
 
-p2 <- qtl_counts |>
-  ggplot(aes(x = n_gtex / 1000, y = n_gtextcga / 1000, fill = tissue)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.3) +
-  annotate("text", label = "y = x", x = 8, y = 7, hjust = 0) +
-  geom_point(shape = 21, color = "black", alpha = 0.75, show.legend = FALSE) +
-  scale_fill_manual(values = gtex_colors) +
-  expand_limits(x = c(0, xy_limit), y = c(0, xy_limit)) +
-  coord_fixed(expand = 0) +
-  theme_bw() +
-  theme(
-    axis.text = element_text(color = "black"),
-    legend.position = "inside",
-    legend.position.inside = c(0.9, 0.1),
-    panel.grid = element_blank(),
-  ) +
-  xlab("xQTLs (×1000), GTEx models") +
-  ylab("xQTLs (×1000), GTEx + TCGA models")
+ggsave("figures/figureS5.png", width = 3.5, height = 3, device = png)
 
-p1 + p2 + plot_annotation(tag_levels = "a") & theme(plot.tag = element_text(face = "bold"))
-
-ggsave("figures/figureS5.png", width = 7.5, height = 3.75, device = png)
+twas_pairs |>
+  summarise(fraction = mean(nearby_hit),
+            .by = c(phenos, gene_biotype))

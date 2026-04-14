@@ -48,7 +48,7 @@ twas_gtex_ddp <- read_tsv("data/processed/gtextcga-full.twas_hits.tsv.gz", col_t
 
 twas_gtex_kdp <- read_tsv("data/processed/gtex-pantry.twas_hits.tsv.gz", col_types = "cccc---dd")
 
-# "using LaDDR-derived phenotypes uncovered an average of 11,790 unique gene–trait pairs per tissue, versus 8,579 from knowledge-driven phenotypes."
+# "using LaDDR-derived phenotypes uncovered an average of 11,796 unique gene–trait pairs per tissue, versus 8,630 from knowledge-driven phenotypes."
 
 twas_gtex_ddp |>
   distinct(tissue, gene_id, trait) |>
@@ -140,7 +140,7 @@ qtls_gtex_ddp |>
 
 ###
 
-# "Compared to six-modality xTWAS at the same p-value threshold of 5⨉10-8 and using the same Geuvadis dataset for transcriptomic models, DDPs resulted in nearly the same number of total associations (24,697 vs. 24,644 for six-modality), 33% more unique gene-trait pairs with associations, and 37% more unique gene-trait pairs with strong evidence of colocalization at the level of shared causal variant."
+# "Compared to six-modality xTWAS at the same p-value threshold of 5⨉10-8 and using the same Geuvadis dataset for transcriptomic models, DDPs resulted in nearly the same number of total associations (24,906 vs. 24,575 for six-modality), 35% more unique gene-trait pairs with associations, and 38% more unique gene-trait pairs with strong evidence of colocalization at the level of shared causal variant."
 
 twas_geuv_ddp <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
 twas_geuv_kdp <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "ccccdddd")
@@ -175,7 +175,7 @@ bind_cols(
 ) |>
   mutate(percent_inc = (n_latent / n_explicit - 1) * 100)
 
-# "Applying xTWAS to DDPs for 49 GTEx tissues and the same 114 traits resulted in a median of 26,501 significant TWAS associations per GTEx tissue, including a total of 64,314 unique gene-trait pairs, 28,116 of which include strongly colocalizing associations"
+# "Applying xTWAS to DDPs for 49 GTEx tissues and the same 114 traits resulted in a median of 26,508 significant TWAS associations per GTEx tissue, including a total of 64,297 unique gene-trait pairs, 28,138 of which include strongly colocalizing associations"
 
 twas_gtex_ddp |>
   count(tissue) |>
@@ -250,14 +250,14 @@ qtls_held_out |>
 twas_geuv_rddp <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "cc---d-") |>
   mutate(modality = "latent", .before = 1)
 
-# "This resulted in a 58% increase in unique gene-trait association pairs"
+# "This resulted in a 59% increase in unique gene-trait association pairs"
 
 bind_rows(twas_geuv_kdp, twas_geuv_rddp) |>
   summarise(latent_only = all(modality == "latent"),
             .by = c(trait, gene_id)) |>
   with(sum(latent_only) / sum(!latent_only))
 
-# "and rDDPs showed the strongest associations for 7,655 (53%) of all pairs"
+# "and rDDPs showed the strongest associations for 7,774 (53%) of all pairs"
 
 bind_rows(twas_geuv_kdp, twas_geuv_rddp) |>
   slice_min(twas_p, n = 1, with_ties = FALSE, by = c(trait, gene_id)) |>
@@ -269,7 +269,7 @@ bind_rows(twas_geuv_kdp, twas_geuv_rddp) |>
 twas_gtex_rddp <- read_tsv("data/processed/gtex-residual.twas_hits.tsv.gz", col_types = "ccc---dd") |>
   mutate(modality = "latent_residual", .before = 2)
 
-# "Similarly, across GTEx tissues, adding rDDP TWAS hits increased the average number of unique gene-trait association pairs by 59%"
+# "Similarly, across GTEx tissues, adding rDDP TWAS hits increased the average number of unique gene-trait association pairs by 58%"
 
 bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
   summarise(latent_only = all(modality == "latent_residual"),
@@ -280,7 +280,7 @@ bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
   mutate(percent_inc = n_latent_only / n_not_latent_only) |>
   with(mean(percent_inc))
 
-# "and rDDPs had the strongest associations for 6,926 (51%) of all unique pairs on average"
+# "and rDDPs had the strongest associations for 6,913 (51%) of all unique pairs on average"
 
 bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
   slice_min(twas_p, n = 1, with_ties = FALSE, by = c(tissue, trait, gene_id)) |>
@@ -331,7 +331,7 @@ filter(twas_example_hits, gene_name == "LINC03051")
 ## Results: Functional characteristics of phenotypes... ##
 ##########################################################
 
-# "Expression had the lowest ratio of colocalizing TWAS hits to xQTLs (median 0.16 across tissues), and rDDPs had the second-lowest (median 0.27, Figure 5d-f)."
+# "Expression had the lowest ratio of colocalizing TWAS hits to xQTLs (median 0.17 across tissues), and rDDPs had the second-lowest (median 0.27, Figure 5d-f)."
 
 coloc <- bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
   summarise(
@@ -346,13 +346,13 @@ coloc_qtl_ratio <- qtls_gtex_rddp |>
 
 coloc_qtl_ratio |>
   summarise(median_ratio = median(ratio), .by = modality) |>
-  arrange(median_ratio)
+  arrange(median_ratio) |> View()
 
 ###
 
-# "35.6% of DDP TWAS gene-trait pairs for protein-coding genes had a nearby gene associated with the same trait, compared to 31.4% of KDP TWAS pairs."
+# "35.5% of DDP TWAS gene-trait pairs for protein-coding genes had a nearby gene associated with the same trait, compared to 31.4% of KDP TWAS pairs."
 
-# "For gene-trait pairs involving lncRNAs, the percentages were higher, at 59.9% for DDP TWAS and 57.7% for KDP TWAS."
+# "For gene-trait pairs involving lncRNAs, the percentages were higher, at 60.2% for DDP TWAS and 57.7% for KDP TWAS."
 
 # See figureS4.R
 
