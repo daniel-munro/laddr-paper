@@ -140,6 +140,34 @@ qtls_gtex_ddp |>
 
 ###
 
+qtlrep <- read_tsv(
+  "data/qtl/gtextcga-full_LCL_ddp_in_geuvadis.tsv.gz",
+  col_types = "ccdddidddd"
+) |>
+  mutate(geuvadis_signif = geuvadis_pval_nominal < geuvadis_pval_nominal_threshold)
+
+# "For each GTEx LCL DDP xQTL lead variant, we examined the association for the same DDP-variant pair in Geuvadis, observing that 89% of all pairs had the same effect direction (slope sign), with slopes correlating at Pearson r=0.67."
+
+qtlrep |>
+  with(mean(gtex_slope * geuvadis_slope > 0))
+
+qtlrep |>
+  with(cor(gtex_slope, geuvadis_slope))
+
+# "Of the 60% of pairs also significant in Geuvadis, 99.7% had the same effect direction, with slopes correlating at Pearson r=0.94."
+
+with(qtlrep, mean(geuvadis_signif))
+
+qtlrep |>
+  filter(geuvadis_signif) |>
+  with(mean(gtex_slope * geuvadis_slope > 0))
+
+qtlrep |>
+  filter(geuvadis_signif) |>
+  with(cor(gtex_slope, geuvadis_slope))
+
+###
+
 # "Compared to six-modality xTWAS at the same p-value threshold of 5⨉10-8 and using the same Geuvadis dataset for transcriptomic models, DDPs resulted in nearly the same number of total associations (24,906 vs. 24,575 for six-modality), 35% more unique gene-trait pairs with associations, and 38% more unique gene-trait pairs with strong evidence of colocalization at the level of shared causal variant."
 
 twas_geuv_ddp <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
@@ -448,6 +476,25 @@ qtl_counts_seqsim <- read_tsv("data/processed/seqsim.qtls.tsv.gz", col_types = "
 (qtl_counts_seqsim["se-75bp-100pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100
 (qtl_counts_seqsim["pe-75bp-50pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100
 (qtl_counts_seqsim["pe-75bp-25pct"] / qtl_counts_seqsim["pe-75bp-100pct"] - 1) * 100
+
+###
+
+benchmark <- read_tsv("data/qc/benchmark_summary.tsv", col_types = "cc---dd-") |>
+  # filter(component %in% c("alignment", "Pantry total", "LaDDR total"))
+  column_to_rownames("component")
+
+# "We measured CPU time and memory usage of LaDDR and Pantry on a 100-sample dataset, starting from FASTQ files and including STAR read mapping for both methods. LaDDR took 209 CPU hours to generate DDPs, including generating bins and fitting models. Pantry took 329 CPU hours to generate KDPs, though most of that was building index files for txrevise, which are computed once and can be reused for any number of samples and datasets."
+
+(benchmark["alignment", "cpu_time_seconds"] +
+    benchmark["LaDDR total", "cpu_time_seconds"]) / 60 / 60
+
+(benchmark["alignment", "cpu_time_seconds"] +
+    benchmark["Pantry total", "cpu_time_seconds"]) / 60 / 60
+
+# "Excluding STAR read mapping, the maximum memory usage was 3.1 GB for LaDDR and 7.8 GB for Pantry."
+
+benchmark["LaDDR total", "max_rss_mb"] / 1024
+benchmark["Pantry total", "max_rss_mb"] / 1024
 
 ###########################
 ## Supplementary Figures ##

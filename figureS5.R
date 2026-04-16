@@ -1,78 +1,122 @@
-## Percentage of xTWAS hits shared with nearby genes
+## Additional colocalization to xQTL ratios
 
 library(tidyverse)
-library(GenomicRanges)
+library(patchwork)
 
-has_nearby_hits <- function(chrom, start, end, distance) {
-  # Create GRanges object from input vectors
-  gr <- GRanges(seqnames = chrom,
-                ranges   = IRanges(start, end))
-  
-  # Find overlaps within the specified distance
-  # First, expand each range by the distance on both sides
-  gr_expanded <- gr + distance
-  
-  # Find overlaps between expanded ranges
-  overlaps <- findOverlaps(gr_expanded, gr_expanded)
-  
-  # Remove self-overlaps
-  overlaps <- overlaps[queryHits(overlaps) != subjectHits(overlaps)]
-  
-  has_nearby <- logical(length(gr))
-  if (length(overlaps) > 0) {
-    has_nearby[queryHits(overlaps)] <- TRUE
-  }
-  
-  return(has_nearby)
-}
+modalities <- c(
+  expression = "Expression",
+  isoforms = "Isoform ratio",
+  splicing = "Intron excision",
+  alt_TSS = "Alt. TSS",
+  alt_polyA = "Alt. polyA",
+  stability = "RNA stability",
+  latent_residual = "Residual DD"
+)
 
-pheno_colors <- c(DDP = "#13918d", KDP = "#ad611f")
+modality_colors <- c(
+  Expression = "#bf4042",
+  `Isoform ratio` = "#6a90cd",
+  `Intron excision` = "#59a257",
+  `Alt. TSS` = "#896090",
+  `Alt. polyA` = "#d97f26",
+  `RNA stability` = "#ddb23c",
+  `Residual DD` = "#1ce6df"
+)
 
-genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cccciic") |>
-  select(gene_id, gene_biotype, chrom, start, end)
-
-twas_ddp <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
-twas_kdp <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "ccccdddd")
-
-twas_pairs <- bind_rows(
-  twas_ddp |>
-    summarise(has_coloc_hit = any(coloc_pp >= 0.8),
-              .by = c(trait, gene_id)) |>
-    mutate(phenos = "DDP", .before = 1),
-  twas_kdp |>
-    summarise(has_coloc_hit = any(coloc_pp >= 0.8),
-              .by = c(trait, gene_id)) |>
-    mutate(phenos = "KDP", .before = 1),
+qtls_hybrid <- read_tsv(
+  "data/processed/gtex-residual-cross.qtls.tsv.gz",
+  col_types = "ccicccd"
 ) |>
-  left_join(genes, by = "gene_id", relationship = "many-to-one") |>
-  mutate(nearby_hit = has_nearby_hits(chrom, start, end, 0),
-         .by = c(phenos, trait))
+  mutate(modality = factor(modalities[modality], levels = rev(modalities)))
 
-frac_pairs <- twas_pairs |>
-  summarise(frac_nearby_hit = mean(nearby_hit),
-            ci95_low = frac_nearby_hit - qnorm(0.975) * sd(nearby_hit) / sqrt(n()),
-            ci95_hi = frac_nearby_hit + qnorm(0.975) * sd(nearby_hit) / sqrt(n()),
-            .by = c(phenos, gene_biotype))
+twas <- bind_rows(
+  read_tsv("data/processed/gtex-residual.twas_hits.tsv.gz", col_types = "cccc--dd") |>
+    mutate(modality = "latent_residual", .after = "tissue"),
+  read_tsv("data/processed/gtex-pantry.twas_hits.tsv.gz", col_types = "ccccc--dd")
+)
 
-frac_pairs |>
-  mutate(gene_biotype = str_replace(gene_biotype, "_", "-") |> fct_rev(),
-         phenos = phenos) |>
-  ggplot(aes(x = phenos, y = frac_nearby_hit, ymin = ci95_low, ymax = ci95_hi, fill = phenos)) +
-  facet_wrap(~gene_biotype) +
-  geom_col(width = 0.5, show.legend = FALSE) +
-  geom_errorbar(width = 0.25) +
-  expand_limits(y = 1) +
-  scale_y_continuous(expand = c(0, 0), labels = scales::label_percent()) +
-  scale_fill_manual(values = pheno_colors) +
+####################
+## Panels a, b, c ## Coloc TWAS genes to xGenes ratio
+####################
+
+coloc_genes <- twas |>
+  filter(coloc_pp > 0.8) |>
+  distinct(tissue, modality, gene_id) |>
+  count(tissue, modality, name = "coloc_n_genes") |>
+  mutate(modality = factor(modalities[modality], levels = rev(modalities)))
+
+coloc_genes_xgene_ratio <- qtls_hybrid |>
+  distinct(tissue, modality, gene_id) |>
+  count(tissue, modality, name = "n_xgenes") |>
+  full_join(coloc_genes, by = c("tissue", "modality"), relationship = "one-to-one") |>
+  mutate(coloc_xgene_ratio = coloc_n_genes / n_xgenes)
+
+p1 <- coloc_genes_xgene_ratio |>
+  ggplot(aes(x = coloc_xgene_ratio, y = modality, fill = modality)) +
+  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
+  scale_fill_manual(values = modality_colors) +
   theme_classic() +
-  theme(
-    axis.text = element_text(color = "black"),
-  ) +
-  xlab("xTWAS phenotypes") +
-  ylab("Gene-trait pairs w/ nearby\nsame-trait TWAS hit")
+  xlab("Genes w. colocalizing TWAS hits / xGenes") +
+  ylab("Modality")
 
-ggsave("figures/figureS5.png", width = 3.5, height = 3, device = png)
+p2 <- coloc_genes_xgene_ratio |>
+  ggplot(aes(x = coloc_n_genes / 1000, y = modality, fill = modality)) +
+  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
+  scale_fill_manual(values = modality_colors) +
+  theme_classic() +
+  xlab("Genes w. colocalizing TWAS hits (×1000)") +
+  ylab(NULL)
 
-twas_pairs |>
-  summarise(fraction = mean(nearby_hit),
-            .by = c(phenos, gene_biotype))
+p3 <- coloc_genes_xgene_ratio |>
+  ggplot(aes(x = n_xgenes / 1000, y = modality, fill = modality)) +
+  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
+  scale_fill_manual(values = modality_colors) +
+  theme_classic() +
+  xlab("xGenes (×1000)") +
+  ylab(NULL)
+
+####################
+## Panels d, e, f ## Top coloc TWAS to top xQTL ratio
+####################
+
+coloc_top <- twas |>
+  filter(coloc_pp > 0.8) |>
+  slice_min(n = 1, order_by = twas_p, by = c("tissue", "trait", "gene_id")) |>
+  count(tissue, modality, name = "coloc_top_n") |>
+  mutate(modality = factor(modalities[modality], levels = rev(modalities)))
+
+coloc_top_qtl_ratio <- qtls_hybrid |>
+  filter(rank == 1) |>
+  count(tissue, modality, name = "n_top_qtls") |>
+  full_join(coloc_top, by = c("tissue", "modality"), relationship = "one-to-one") |>
+  mutate(coloc_top_qtl_ratio = coloc_top_n / n_top_qtls)
+
+p4 <- coloc_top_qtl_ratio |>
+  ggplot(aes(x = coloc_top_qtl_ratio, y = modality, fill = modality)) +
+  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
+  scale_fill_manual(values = modality_colors) +
+  theme_classic() +
+  xlab("Top colocalizing TWAS hits / Top xQTLs") +
+  ylab("Modality")
+
+p5 <- coloc_top_qtl_ratio |>
+  ggplot(aes(x = coloc_top_n / 1000, y = modality, fill = modality)) +
+  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
+  scale_fill_manual(values = modality_colors) +
+  theme_classic() +
+  xlab("Top colocalizing TWAS hits (×1000)") +
+  ylab(NULL)
+
+p6 <- coloc_top_qtl_ratio |>
+  ggplot(aes(x = n_top_qtls / 1000, y = modality, fill = modality)) +
+  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
+  scale_fill_manual(values = modality_colors) +
+  theme_classic() +
+  xlab("Top xQTLs (×1000)") +
+  ylab(NULL)
+
+(p1 + p2 + p3) / plot_spacer() / (p4 + p5 + p6) +
+  plot_layout(heights = c(6, 1, 6)) +
+  plot_annotation(tag_levels = "a")
+
+ggsave("figures/figureS5.png", width = 10, height = 4, device = png)

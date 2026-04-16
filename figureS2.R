@@ -1,112 +1,33 @@
-## Unique significant TWAS gene-trait pairs for DDP vs KDP phenotypes
+## Replication of GTEx LCL DDP xQTLs in Geuvadis
 
 library(tidyverse)
-library(scales)
 
-summarize_dataset <- function(dat) {
-  n_tests <- nrow(dat)
-  n_gene_trait_pairs <- dat |>
-    distinct(gene_id, trait) |>
-    nrow()
-
-  dat <- dat |>
-    mutate(
-      bh_fdr = p.adjust(TWAS.P, method = "BH"),
-      bonferroni_p = p.adjust(TWAS.P, method = "bonferroni")
-    )
-
-  thresholds <- tribble(
-    ~method, ~threshold_label, ~threshold_value,
-    "fixed_p", "p <= 5e-8", 5e-8,
-    "bonferroni", "Bonferroni <= 0.05", 0.05,
-    "bh_fdr", "BH FDR <= 0.05", 0.05
-  )
-
-  pmap_dfr(
-    thresholds,
-    function(method, threshold_label, threshold_value) {
-      if (method == "fixed_p") {
-        is_significant <- dat$TWAS.P <= threshold_value
-      } else if (method == "bonferroni") {
-        is_significant <- dat$bonferroni_p <= threshold_value
-      } else {
-        is_significant <- dat$bh_fdr <= threshold_value
-      }
-
-      hits <- dat |>
-        filter(is_significant %in% TRUE)
-
-      tibble(
-        threshold_label = threshold_label,
-        n_total = n_gene_trait_pairs,
-        n_hits = hits |>
-          distinct(gene_id, trait) |>
-          nrow(),
-        proportion = (hits |>
-          distinct(gene_id, trait) |>
-          nrow()) / n_gene_trait_pairs
-      )
-    }
-  )
-}
-
-genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c------") |>
-  pull()
-
-df_ddp <- read_tsv("data/twas/twas_pvalues_ddp.tsv.gz", col_types = "ccd") |>
-  mutate(gene_id = str_remove(ID, "__.*$")) |>
-  filter(gene_id %in% genes)
-
-df_kdp <- read_tsv("data/twas/twas_pvalues_kdp.tsv.gz", col_types = "ccd") |>
-  mutate(gene_id = str_remove(ID, "__.*$")) |>
-  filter(gene_id %in% genes)
-
-summary_dat <- bind_rows(
-  summarize_dataset(df_ddp) |>
-    mutate(phenotype_set = "Data-driven phenotypes"),
-  summarize_dataset(df_kdp) |>
-    mutate(phenotype_set = "Knowledge-driven phenotypes")
+qtlrep <- read_tsv(
+  "data/qtl/gtextcga-full_LCL_ddp_in_geuvadis.tsv.gz",
+  col_types = "ccdddidddd"
 ) |>
   mutate(
-    phenotype_set = factor(phenotype_set),
-    threshold_label = factor(
-      threshold_label,
-      levels = c(
-        "p <= 5e-8",
-        "Bonferroni <= 0.05",
-        "BH FDR <= 0.05"
-      )
-    )
-  )
+    geuvadis_signif = geuvadis_pval_nominal < geuvadis_pval_nominal_threshold,
+    gtex_slope = pmax(-4, pmin(gtex_slope, 4))
+  ) |>
+  # arrange(geuvadis_signif)
+  arrange(desc(gtex_pval_nominal)) |>
+  mutate(gtex_pval_nominal = pmax(1e-40, gtex_pval_nominal))
 
-summary_dat |>
-  ggplot(aes(x = threshold_label, y = n_hits / 1000, fill = phenotype_set)) +
-  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
-  scale_fill_manual(values = c("#13918d", "#ad611f")) +
-  scale_y_continuous(
-    labels = label_number(big.mark = ","),
-    expand = expansion(mult = c(0, 0.04))
-  ) +
-  theme_bw() +
-  theme(
-    axis.text = element_text(color = "black"),
-    axis.text.x = element_text(angle = 30, hjust = 1),
-    legend.background = element_rect(color = "black", linewidth = 0.2),
-    legend.position = "inside",
-    legend.position.inside = c(0.35, 0.8),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor = element_blank()
-  ) +
-  xlab(NULL) +
-  ylab("Unique xTWAS hit gene-trait pairs (×1000)") +
-  labs(fill = NULL)
+qtlrep |>
+  ggplot(aes(x = gtex_slope, y = geuvadis_slope, color = -log10(gtex_pval_nominal), alpha = geuvadis_signif)) +
+  geom_hline(yintercept = 0, linewidth = 0.3, color = "#cccccc") +
+  geom_vline(xintercept = 0, linewidth = 0.3, color = "#cccccc") +
+  geom_point(size = 0.5) +
+  scale_x_continuous(expand = 0) +
+  scale_y_continuous(limits = c(-4, 4), expand = 0) +
+  scale_color_viridis_c(breaks = c(10, 20, 30, 40), labels = c(10, 20, 30, "40+")) +
+  scale_alpha_manual(values = c(0.2, 1)) +
+  coord_fixed() +
+  theme_classic() +
+  guides(alpha = "none") +
+  xlab("xQTL slope, GTEx LCL") +
+  ylab("Slope for same phenotype-variant, Geuvadis LCL") +
+  labs(color = expression(-log[10](italic(p)[plain("GTEx")])))
 
-output_dir <- Sys.getenv("FIGURES_DIR", unset = "figures")
-dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-
-ggsave(
-  file.path(output_dir, "figureS2.png"),
-  width = 4,
-  height = 4,
-  device = png
-)
+ggsave("figures/figureS2.png", width = 5, height = 4, device = png)

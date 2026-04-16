@@ -1,78 +1,112 @@
-## Gene-relative positions of held-out latent QTLs
+## Unique significant TWAS gene-trait pairs for DDP vs KDP phenotypes
 
 library(tidyverse)
+library(scales)
 
-modalities <- c(
-  expression = "Expression",
-  isoforms = "Isoform ratio",
-  splicing = "Intron excision",
-  alt_TSS = "Alternative TSS",
-  alt_polyA = "Alternative polyA",
-  stability = "RNA stability"
-)
+summarize_dataset <- function(dat) {
+  n_tests <- nrow(dat)
+  n_gene_trait_pairs <- dat |>
+    distinct(gene_id, trait) |>
+    nrow()
 
-modality_colors <- c(
-  Expression = "#bf4042",
-  `Isoform ratio` = "#6a90cd",
-  `Intron excision` = "#59a257",
-  `Alternative TSS` = "#896090",
-  `Alternative polyA` = "#d97f26",
-  `RNA stability` = "#ddb23c"
-)
+  dat <- dat |>
+    mutate(
+      bh_fdr = p.adjust(TWAS.P, method = "BH"),
+      bonferroni_p = p.adjust(TWAS.P, method = "bonferroni")
+    )
 
-genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c-cciic") |>
-  mutate(TSS = if_else(strand == "-", end, start),
-         TES = if_else(strand == "-", start, end)) |>
-  select(gene_id, chrom, TSS, TES)
+  thresholds <- tribble(
+    ~method, ~threshold_label, ~threshold_value,
+    "fixed_p", "p <= 5e-8", 5e-8,
+    "bonferroni", "Bonferroni <= 0.05", 0.05,
+    "bh_fdr", "BH FDR <= 0.05", 0.05
+  )
 
-qtls_rddp <- read_tsv(
-  "data/processed/held_out-geuvadis.qtls.tsv.gz", col_types = "ccccdci"
-) |>
-  filter(modality == "latent_residual")
+  pmap_dfr(
+    thresholds,
+    function(method, threshold_label, threshold_value) {
+      if (method == "fixed_p") {
+        is_significant <- dat$TWAS.P <= threshold_value
+      } else if (method == "bonferroni") {
+        is_significant <- dat$bonferroni_p <= threshold_value
+      } else {
+        is_significant <- dat$bh_fdr <= threshold_value
+      }
 
-original_genes <- qtls_rddp |>
-  filter(held_out == "none") |>
-  distinct(gene_id) |>
+      hits <- dat |>
+        filter(is_significant %in% TRUE)
+
+      tibble(
+        threshold_label = threshold_label,
+        n_total = n_gene_trait_pairs,
+        n_hits = hits |>
+          distinct(gene_id, trait) |>
+          nrow(),
+        proportion = (hits |>
+          distinct(gene_id, trait) |>
+          nrow()) / n_gene_trait_pairs
+      )
+    }
+  )
+}
+
+genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "c------") |>
   pull()
 
-qtls_rddp_new_genes <- qtls_rddp |>
-  filter(held_out != "none",
-         !(gene_id %in% original_genes)) |>
-  mutate(held_out = c(modalities)[held_out] |> fct_inorder())
+df_ddp <- read_tsv("data/twas/twas_pvalues_ddp.tsv.gz", col_types = "ccd") |>
+  mutate(gene_id = str_remove(ID, "__.*$")) |>
+  filter(gene_id %in% genes)
 
-qtls_rddp_pos <- qtls_rddp_new_genes |>
-  mutate(chrom = str_split_i(variant_id, "_", 1),
-         pos = str_split_i(variant_id, "_", 2) |> as.integer()) |>
-  left_join(genes, by = "gene_id") |>
+df_kdp <- read_tsv("data/twas/twas_pvalues_kdp.tsv.gz", col_types = "ccd") |>
+  mutate(gene_id = str_remove(ID, "__.*$")) |>
+  filter(gene_id %in% genes)
+
+summary_dat <- bind_rows(
+  summarize_dataset(df_ddp) |>
+    mutate(phenotype_set = "Data-driven phenotypes"),
+  summarize_dataset(df_kdp) |>
+    mutate(phenotype_set = "Knowledge-driven phenotypes")
+) |>
   mutate(
-    rel_pos_gene = (pos - TSS) / (TES - TSS),
-    rel_pos_TSS = if_else(TSS < TES, pos - TSS, TSS - pos),
-    rel_pos_TES = if_else(TSS < TES, pos - TES, TES - pos),
+    phenotype_set = factor(phenotype_set),
+    threshold_label = factor(
+      threshold_label,
+      levels = c(
+        "p <= 5e-8",
+        "Bonferroni <= 0.05",
+        "BH FDR <= 0.05"
+      )
+    )
   )
-stopifnot(all(qtls_rddp_pos$chrom.x == qtls_rddp_pos$chrom.y))
 
-df <- qtls_rddp_pos |>
-  filter(rel_pos_gene >= -1,
-         rel_pos_gene <= 2) |>
-  mutate(modality = held_out)
-
-ggplot(df, aes(x = rel_pos_gene, fill = modality)) +
-  facet_grid(rows = vars(modality), scales = "free_y", drop = TRUE) +
-  geom_histogram(bins = 80, show.legend = FALSE) +
-  scale_fill_manual(values = modality_colors) +
-  scale_x_continuous(expand = c(0, 0), breaks = c(0, 1),
-                     labels = c("Gene start", "Gene end")) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 2)) +
-  geom_vline(xintercept = c(0, 1), alpha = 0.5) +
-  geom_text(mapping = aes(label = modality), data = distinct(df, modality),
-            x = -0.95, y = Inf, hjust = 0, vjust = 1, fontface = 1) +
-  theme_classic() +
+summary_dat |>
+  ggplot(aes(x = threshold_label, y = n_hits / 1000, fill = phenotype_set)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
+  scale_fill_manual(values = c("#13918d", "#ad611f")) +
+  scale_y_continuous(
+    labels = label_number(big.mark = ","),
+    expand = expansion(mult = c(0, 0.04))
+  ) +
+  theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
-    strip.text = element_blank(),
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    legend.background = element_rect(color = "black", linewidth = 0.2),
+    legend.position = "inside",
+    legend.position.inside = c(0.35, 0.8),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank()
   ) +
-  xlab("xVariant position normalized to xGene length") +
-  ylab("No. xQTLs") +
-  ggtitle("New rDDP xQTLs when holding out the indicated modality")
+  xlab(NULL) +
+  ylab("Unique xTWAS hit gene-trait pairs (×1000)") +
+  labs(fill = NULL)
 
-ggsave("figures/figureS3.png", width = 6, height = 6, device = png)
+output_dir <- Sys.getenv("FIGURES_DIR", unset = "figures")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+ggsave(
+  file.path(output_dir, "figureS3.png"),
+  width = 4,
+  height = 4,
+  device = png
+)
