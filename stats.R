@@ -275,7 +275,7 @@ qtls_held_out |>
 
 ###
 
-twas_geuv_rddp <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "cc---d-") |>
+twas_geuv_rddp <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "cc---dd") |>
   mutate(modality = "latent", .before = 1)
 
 # "This resulted in a 59% increase in unique gene-trait association pairs"
@@ -311,6 +311,29 @@ bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
 # "and rDDPs had the strongest associations for 6,913 (51%) of all unique pairs on average"
 
 bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
+  slice_min(twas_p, n = 1, with_ties = FALSE, by = c(tissue, trait, gene_id)) |>
+  summarise(n_latent = sum(modality == "latent_residual"),
+            frac_latent = mean(modality == "latent_residual"),
+            .by = tissue) |>
+  summarise(mean_n_latent = mean(n_latent),
+            mean_frac_latent = mean(frac_latent))
+
+# "Looking at the subset of xTWAS hits with strong evidence of colocalization at the shared causal variant level, adding rDDP hits increased gene-trait pairs by 63% per tissue"
+
+bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
+  filter(coloc_pp > 0.8) |>
+  summarise(latent_only = all(modality == "latent_residual"),
+            .by = c(tissue, trait, gene_id)) |>
+  summarise(n_not_latent_only = sum(!latent_only),
+            n_latent_only = sum(latent_only),
+            .by = c(tissue)) |>
+  mutate(percent_inc = n_latent_only / n_not_latent_only) |>
+  with(mean(percent_inc))
+
+# "and rDDPs had the strongest associations for 2,340 (49%) of the pairs on average."
+
+bind_rows(twas_gtex_kdp, twas_gtex_rddp) |>
+  filter(coloc_pp > 0.8) |>
   slice_min(twas_p, n = 1, with_ties = FALSE, by = c(tissue, trait, gene_id)) |>
   summarise(n_latent = sum(modality == "latent_residual"),
             frac_latent = mean(modality == "latent_residual"),
@@ -354,6 +377,37 @@ filter(twas_example_hits, gene_name == "DGKB")
 # Finally, the "Sleeplessness / insomnia" trait had data-driven xTWAS hits for LINC03051 (Long intergenic non-protein coding RNA 3051) in the anterior cingulate cortex (BA24).
 
 filter(twas_example_hits, gene_name == "LINC03051")
+
+###
+
+finngen_coloc <- read_tsv(
+  "data/finngen_coloc/coloc.significant.tsv.gz",
+  col_types = cols(phenotype_id = "c", finngen_trait = "c", clpp = "d", .default = "-")
+) |>
+  filter(clpp >= 0.01) |>
+  separate_wider_delim(phenotype_id, delim = ":", names = c("modality", "phenotype_id")) |>
+  mutate(
+    qtl_gene_id = phenotype_id |>
+      str_replace("^.*:", "") |>
+      str_replace("__.*$", ""),
+    modality_group = if_else(modality == "latent_residual", "rDDP", "KDP"),
+  )
+
+finngen_pairs <- finngen_coloc |>
+  summarise(
+    modality_groups = str_c(sort(unique(modality_group)), collapse = "_"),
+    .by = c(qtl_gene_id, finngen_trait)
+  )
+
+# Of the 13,489 gene-trait pairs with significant colocalizations
+
+nrow(finngen_pairs)
+
+# 35% included only rDDP xQTLs, 14% included rDDP and KDP xQTLs, and 51% included only KDP xQTLs (Supplementary Figure XX).
+
+finngen_pairs |>
+  count(modality_groups) |>
+  mutate(frac = n / sum(n))
 
 ##########################################################
 ## Results: Functional characteristics of phenotypes... ##
