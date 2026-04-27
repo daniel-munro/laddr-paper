@@ -275,6 +275,25 @@ qtls_held_out |>
 
 ###
 
+# Of the 34,752 retained introns detected and quantified, 10,502 matched with one or more rDDPs
+
+read_tsv("data/majiq/summary.tsv", col_types = "ci")
+
+# There were 4,225 genes with IR-matched rDDPs,
+
+read_tsv("data/majiq/high_correlation_ir_laddr.tsv.gz", show_col_types = FALSE) |>
+  distinct(ir_gene_id) |>
+  nrow()
+
+# while the greatest number of such genes for a KDP modality was 2,236 genes with IR-matched isoform ratio phenotypes
+
+read_tsv("data/majiq/high_correlation_ir_kdp.tsv.gz", show_col_types = FALSE) |>
+  mutate(modality = str_extract(phenotype_id, "^[^:]+")) |>
+  distinct(modality, ir_gene_id) |>
+  count(modality, sort = TRUE)
+
+###
+
 twas_geuv_rddp <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "cc---dd") |>
   mutate(modality = "latent", .before = 1)
 
