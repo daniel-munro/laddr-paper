@@ -1,80 +1,277 @@
-## Effect on xQTLs of including more GTEx tissues and TCGA data for latent models
+## Colocalization analysis between KDP/rDDP xQTLs and FinnGen GWAS traits
 
+library(locuszoomr)
+library(EnsDb.Hsapiens.v86)
 library(tidyverse)
 library(patchwork)
+library(scales)
 
-qtls_gtex5_full <- read_tsv("data/processed/gtex5-full.qtls.tsv.gz", col_types = "cciccd")
-
-qtls_gtex_full <- read_tsv("data/processed/gtex-full.qtls.tsv.gz", col_types = "cciccd")
-
-qtls_gtextcga_full <- read_tsv("data/processed/gtextcga-full.qtls.tsv.gz", col_types = "cciccd")
-
-tissues5 <- read_lines("data/info/tissues.gtex5.txt")
-
-gtex_colors <- read_tsv(
-  "data/pantry/gtex/tissueInfo.tsv",
-  col_types = cols(tissueSiteDetailAbbr = "c", colorHex = "c", .default = "-")
+traits <- read_tsv("data/finngen_coloc/finngen_R12_manifest.tsv", col_types = "c-c----") |>
+  mutate(
+    category = category |>
+      str_replace("^[XVI]+ ", "") |>
+      str_replace(" \\(.+\\)$", "")
+  )
+  
+coloc <- read_tsv(
+  "data/finngen_coloc/coloc.significant.tsv.gz",
+  col_types = cols(phenotype_id = "c", phenotype_class = "c", finngen_trait = "c", clpp = "d", .default = "-")
 ) |>
-  mutate(colorHex = str_c("#", colorHex)) |>
-  deframe()
+  filter(clpp >= 0.01) |>
+  mutate(
+    qtl_gene_id = phenotype_id |>
+      str_replace("^.*:", "") |>
+      str_replace("__.*$", ""),
+    modality_group = if_else(phenotype_class == "latent_residual", "rDDP", "KDP"),
+  ) |>
+  left_join(traits, by = c("finngen_trait" = "phenocode"))
 
-qtl_counts <- full_join(
-  qtls_gtex5_full |>
-    count(tissue, name = "n_gtex5"),
-  qtls_gtex_full |>
-    count(tissue, name = "n_gtex"),
-  by = "tissue",
-  relationship = "one-to-one"
-) |>
-  full_join(
-    qtls_gtextcga_full |>
-      count(tissue, name = "n_gtextcga"),
-    by = "tissue",
-    relationship = "one-to-one"
+pairs <- coloc |>
+  summarise(
+    modality_groups = str_c(sort(unique(modality_group)), collapse = "_"),
+    .by = c(qtl_gene_id, finngen_trait, category)
+  ) |>
+  mutate(
+    category = category |>
+      fct_infreq() |>
+      fct_lump_n(n = 25, other_level = "Other categories"),
+    modality_groups = c(
+      KDP = "KDP only",
+      KDP_rDDP = "KDP & rDDP",
+      rDDP = "rDDP only"
+    )[modality_groups] |>
+      fct_relevel(c("KDP only", "KDP & rDDP", "rDDP only"))
   )
 
-xy_limit <- with(qtl_counts, max(n_gtex5, n_gtex, n_gtextcga)) / 1000 * 1.04
+# Panel a: bar plot of gene-trait pairs, for each trait category, with rDDP-only, rDDP + KDP, and KDP-only colocs (CLPP > 0.1?)
 
-p1 <- qtl_counts |>
-  mutate(in_5_tissues = if_else(tissue %in% tissues5, "True", "False")) |>
-  ggplot(aes(x = n_gtex5 / 1000, y = n_gtex / 1000, fill = tissue, shape = in_5_tissues)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.3) +
-  annotate("text", label = "y = x", x = 8, y = 7, hjust = 0) +
-  geom_point(alpha = 0.75) +
-  # scale_color_manual(values = c("black", "red")) +
-  scale_fill_manual(values = gtex_colors, guide = "none") +
-  scale_shape_manual(values = c(21, 24)) +
-  expand_limits(x = c(0, xy_limit), y = c(0, xy_limit)) +
-  coord_fixed(expand = 0) +
-  theme_bw() +
+p_barplot <- pairs |>
+  ggplot(aes(fill = modality_groups, y = category)) +
+  geom_bar(width = 0.8, color = "black") +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.01))) +
+  scale_fill_manual(values = c("white", "gray", "#444444")) +
+  theme_classic() +
   theme(
-    axis.text = element_text(color = "black"),
     legend.position = "inside",
-    legend.position.inside = c(0.75, 0.2),
-    panel.grid = element_blank(),
+    legend.position.inside = c(0.9, 0.9),
+    legend.justification.inside = c(1, 1),
   ) +
-  xlab("xQTLs (×1000), 5-tissue models") +
-  ylab("xQTLs (×1000), GTEx models") +
-  labs(shape = "Tissue used for\n5-tissue models")
+  labs(fill = "xQTL types") +
+  xlab("Colocalized gene-trait pairs") +
+  ylab("FinnGen trait category")
 
-p2 <- qtl_counts |>
-  ggplot(aes(x = n_gtex / 1000, y = n_gtextcga / 1000, fill = tissue)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.3) +
-  annotate("text", label = "y = x", x = 8, y = 7, hjust = 0) +
-  geom_point(shape = 21, color = "black", alpha = 0.75, show.legend = FALSE) +
-  scale_fill_manual(values = gtex_colors) +
-  expand_limits(x = c(0, xy_limit), y = c(0, xy_limit)) +
-  coord_fixed(expand = 0) +
-  theme_bw() +
-  theme(
-    axis.text = element_text(color = "black"),
-    legend.position = "inside",
-    legend.position.inside = c(0.9, 0.1),
-    panel.grid = element_blank(),
+# Panels b-d: locuszoom-style plots for selected example colocalizations
+
+example_ids_to_plot <- str_glue("example_{c(3, 4, 5)}")
+plot_flank <- 500000
+ens_db <- "EnsDb.Hsapiens.v86"
+ld_cache_file <- "data/finngen_coloc/coloc_examples.ld_cache.tsv"
+
+stopifnot(file.exists(ld_cache_file))
+
+examples <- read_tsv(
+  "data/finngen_coloc/coloc_examples.annotated.tsv",
+  show_col_types = FALSE
+) |>
+  mutate(
+    example_id = factor(example_id, levels = unique(example_id)),
+    gene_id = str_extract(phenotype_id, "ENSG[0-9]+"),
+    pc = str_extract(phenotype_id, "PC[0-9]+$") |> str_replace("PC", "rDDP"),
+    region_chr = str_extract(finngen_region, "^chr[^:]+"),
+    region_chr_no_prefix = str_remove(region_chr, "^chr"),
+    region_start = str_match(finngen_region, ":([0-9]+)-")[, 2] |> as.integer(),
+    region_end = str_match(finngen_region, "-([0-9]+)$")[, 2] |> as.integer(),
+    shared_pos = str_match(top_shared_variant, "^[^:]+:([0-9]+):")[, 2] |> as.integer(),
+    plot_start = pmax(region_start, shared_pos - plot_flank),
+    plot_end = pmin(region_end, shared_pos + plot_flank),
+    shared_snp = as.character(str_glue("{region_chr}:{shared_pos}"))
+  ) |>
+  filter(example_id %in% example_ids_to_plot)
+
+gene_names <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cc-----") |>
+  rename(gene_label = gene_name)
+
+examples <- examples |>
+  left_join(gene_names, by = "gene_id", relationship = "many-to-one") |>
+  mutate(
+    gene_label = coalesce(na_if(gene_label, "NA"), gene_id),
+    example_label = str_glue("{gene_label} {pc} in {tissue}")
+  )
+
+ld_cache <- read_tsv(ld_cache_file, show_col_types = FALSE) |>
+  mutate(
+    example_id = as.character(example_id),
+    snp = as.character(snp),
+    ld = as.numeric(ld)
+  ) |>
+  filter(example_id %in% as.character(examples$example_id))
+
+missing_ld <- setdiff(as.character(examples$example_id), unique(ld_cache$example_id))
+if (length(missing_ld) > 0) {
+  stop(
+    "Missing LD cache for: ",
+    str_c(missing_ld, collapse = ", "),
+    ". Render analyses/finngen_coloc/coloc_locuszoom.qmd first."
+  )
+}
+
+qtl_region <- read_tsv(
+  "data/finngen_coloc/coloc_examples.qtl_region.tsv.gz",
+  show_col_types = FALSE,
+  guess_max = 200000
+) |>
+  mutate(
+    example_id = as.character(example_id),
+    chrom = str_remove(variant_chrom, "^chr"),
+    pos = str_match(variant_key, "^[^:]+:([0-9]+):")[, 2] |> as.integer(),
+    p = pmax(as.numeric(pval_nominal), .Machine$double.xmin),
+    snp = as.character(str_glue("chr{chrom}:{pos}"))
+  ) |>
+  filter(example_id %in% as.character(examples$example_id)) |>
+  dplyr::select(example_id, chrom, pos, p, snp, variant_key) |>
+  left_join(ld_cache, by = c("example_id", "snp")) |>
+  left_join(
+    examples |>
+      transmute(example_id = as.character(example_id), shared_snp),
+    by = "example_id"
+  ) |>
+  mutate(ld = if_else(snp == shared_snp, 1, ld))
+
+finngen_region <- read_tsv(
+  "data/finngen_coloc/coloc_examples.finngen_region.tsv.gz",
+  show_col_types = FALSE,
+  guess_max = 200000
+) |>
+  mutate(
+    example_id = as.character(example_id),
+    chrom = str_remove(as.character(`#chrom`), "^chr"),
+    pos = as.integer(pos),
+    p = pmax(as.numeric(pval), .Machine$double.xmin),
+    snp = as.character(str_glue("chr{chrom}:{pos}"))
+  ) |>
+  filter(example_id %in% as.character(examples$example_id)) |>
+  dplyr::select(example_id, chrom, pos, p, snp, variant_key) |>
+  left_join(ld_cache, by = c("example_id", "snp")) |>
+  left_join(
+    examples |>
+      transmute(example_id = as.character(example_id), shared_snp),
+    by = "example_id"
+  ) |>
+  mutate(ld = if_else(snp == shared_snp, 1, ld))
+
+make_locus <- function(df, info) {
+  df <- df |>
+    filter(!is.na(pos), !is.na(p))
+
+  locus(
+    data = as.data.frame(df),
+    xrange = c(info$plot_start, info$plot_end),
+    seqname = info$region_chr_no_prefix,
+    ens_db = ens_db,
+    chrom = "chrom",
+    pos = "pos",
+    p = "p",
+    labs = "snp",
+    index_snp = info$shared_snp,
+    LD = "ld"
+  )
+}
+
+plot_locus_example <- function(example) {
+  info <- examples |>
+    filter(example_id == example) |>
+    slice_head(n = 1)
+
+  qtl_loc <- make_locus(
+    qtl_region |> filter(example_id == info$example_id),
+    info
+  )
+
+  fg_loc <- make_locus(
+    finngen_region |> filter(example_id == info$example_id),
+    info
+  )
+
+  p_qtl <- gg_scatter(
+    qtl_loc,
+    index_snp = info$shared_snp,
+    pcutoff = 0,
+    labels = NULL,
+    xticks = FALSE,
+    ylab = expression(xQTL~-log[10](italic(P))),
+    showLD = TRUE,
+    legend_pos = "topright",
+    size = 2,
+    LD_scheme = c("grey75", "royalblue", "cyan2",
+                  "green3", "orange", "red", "purple")
   ) +
-  xlab("xQTLs (×1000), GTEx models") +
-  ylab("xQTLs (×1000), GTEx + TCGA models")
+    scale_x_continuous(expand = 0) +
+    labs(title = info$example_label) +
+    theme(
+      plot.title = element_text(size = 9, face = "bold"),
+      legend.position = "none",
+      axis.title.x = element_blank(),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+    )
 
-p1 + p2 + plot_annotation(tag_levels = "a") & theme(plot.tag = element_text(face = "bold"))
+  p_fg <- gg_scatter(
+    fg_loc,
+    index_snp = info$shared_snp,
+    pcutoff = 5e-8,
+    labels = NULL,
+    xticks = FALSE,
+    ylab = expression(FinnGen~-log[10](italic(P))),
+    showLD = TRUE,
+    legend_pos = "topright",
+    size = 2,
+    LD_scheme = c("grey75", "royalblue", "cyan2",
+                  "green3", "orange", "red", "purple")
+  ) +
+    scale_x_continuous(expand = 0) +
+    labs(title = info$finngen_trait) +
+    theme(
+      plot.title = element_text(size = 8),
+      legend.position = "none",
+      axis.title.x = element_blank(),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+    )
 
-ggsave("figures/figureS7.png", width = 7.5, height = 3.75, device = png)
+  p_genes <- gg_genetracks(
+    fg_loc,
+    xticks = TRUE,
+    xlab = str_glue("{info$region_chr} position (Mb)"),
+    showExons = TRUE,
+    maxrows = 5,
+    highlight = info$gene_label,
+    highlight_col = "red3",
+    blanks = "fill",
+    gene_col = "grey35",
+    exon_col = "grey35",
+    exon_border = "grey35"
+  ) +
+    scale_x_continuous(expand = 0)
+
+  p_qtl / p_fg / p_genes +
+    plot_layout(heights = c(2.1, 2.1, 1.4))
+}
+
+locus_plots <- map(as.character(examples$example_id), plot_locus_example)
+locus_panels <- map(locus_plots, wrap_elements)
+
+combined_plot <- free(p_barplot) + locus_panels +
+  plot_annotation(tag_levels = "a") &
+  theme(plot.tag = element_text(face = "bold"))
+
+combined_plot
+
+output_dir <- Sys.getenv("FIGURES_DIR", unset = "figures")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+ggsave(
+  file.path(output_dir, "figureS7.png"),
+  width = 13,
+  height = 10,
+  device = png
+)

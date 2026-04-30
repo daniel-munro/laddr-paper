@@ -1,78 +1,164 @@
-## Percentage of xTWAS hits shared with nearby genes
+## TWAS example loci: genotype-stratified RNA-seq coverage
 
 library(tidyverse)
-library(GenomicRanges)
+library(patchwork)
 
-has_nearby_hits <- function(chrom, start, end, distance) {
-  # Create GRanges object from input vectors
-  gr <- GRanges(seqnames = chrom,
-                ranges   = IRanges(start, end))
-  
-  # Find overlaps within the specified distance
-  # First, expand each range by the distance on both sides
-  gr_expanded <- gr + distance
-  
-  # Find overlaps between expanded ranges
-  overlaps <- findOverlaps(gr_expanded, gr_expanded)
-  
-  # Remove self-overlaps
-  overlaps <- overlaps[queryHits(overlaps) != subjectHits(overlaps)]
-  
-  has_nearby <- logical(length(gr))
-  if (length(overlaps) > 0) {
-    has_nearby[queryHits(overlaps)] <- TRUE
-  }
-  
-  return(has_nearby)
+examples <- read_tsv(
+  "data/analyses/twas_examples/twas_example_variants.tsv",
+  col_types = cols(
+    tissue = "c",
+    gene_id = "c",
+    variant_id = "c"
+  )
+)
+
+gene_names <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cc-----") |>
+  tibble::deframe()
+
+variant_label <- function(variant_id) {
+  parts <- str_split_fixed(variant_id, "_", 5)
+  str_glue("{parts[, 1]}:{parts[, 2]}")
 }
 
-pheno_colors <- c(DDP = "#13918d", KDP = "#ad611f")
+plot_example <- function(tissue, gene_id, variant_id) {
+  example_dir <- file.path(
+    "data/analyses/twas_examples",
+    str_glue("{tissue}.{gene_id}.{variant_id}")
+  )
+  
+  coverage <- read_tsv(
+    file.path(example_dir, "coverage.tsv.gz"),
+    col_types = cols(
+      sample_id = "c",
+      individual_id = "c",
+      tissue = "c",
+      gene_id = "c",
+      .default = "d"
+    )
+  )
+  
+  bins <- read_tsv(
+    file.path(example_dir, "bins.tsv.gz"),
+    col_types = cols(
+      bin_id = "c",
+      tissue = "c",
+      gene_id = "c",
+      pos = "i",
+      chrom = "c",
+      chrom_start = "i",
+      chrom_end = "i"
+    )
+  )
+  
+  genotypes <- read_tsv(
+    file.path(example_dir, "individual_genotypes.tsv.gz"),
+    col_types = cols(
+      individual_id = "c",
+      variant_id = "c",
+      genotype = "c",
+      genotype_label = "c",
+      .default = "-"
+    )
+  ) |>
+    select(individual_id, genotype, genotype_label)
+  
+  genotype_levels <- genotypes |>
+    distinct(genotype, genotype_label) |>
+    mutate(genotype = factor(genotype, levels = c("0/0", "0/1", "1/1"))) |>
+    arrange(genotype) |>
+    pull(genotype_label)
+  
+  genotype_group_levels <- c(genotype_levels[1], genotype_levels[3], genotype_levels[2]) |>
+    discard(is.na)
+  
+  genotype_counts <- coverage |>
+    left_join(genotypes, by = "individual_id") |>
+    filter(!is.na(genotype_label)) |>
+    distinct(individual_id, genotype_label) |>
+    count(genotype_label) |>
+    mutate(genotype_label = factor(genotype_label, levels = genotype_levels)) |>
+    arrange(genotype_label)
 
-genes <- read_tsv("data/processed/pcg_and_lncrna.tsv", col_types = "cccciic") |>
-  select(gene_id, gene_biotype, chrom, start, end)
+  coverage_summary <- coverage |>
+    left_join(genotypes, by = "individual_id") |>
+    filter(!is.na(genotype_label)) |>
+    pivot_longer(
+      starts_with("bin_"),
+      names_to = "bin",
+      values_to = "coverage"
+    ) |>
+    mutate(
+      coverage = log10(coverage + 1),
+      bin = parse_number(bin) + 1,
+      genotype_label = factor(genotype_label, levels = genotype_levels),
+      genotype_group = factor(genotype_label, levels = genotype_group_levels)
+    ) |>
+    summarise(
+      covg_25th = quantile(coverage, 0.25),
+      covg_50th = median(coverage),
+      covg_75th = quantile(coverage, 0.75),
+      covg_mean = mean(coverage),
+      .by = c(bin, genotype_label, genotype_group)
+    )
 
-twas_ddp <- read_tsv("data/processed/geuvadis-full.twas_hits.tsv.gz", col_types = "cccdddd")
-twas_kdp <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "ccccdddd")
+  gene_name <- gene_names[[gene_id]]
 
-twas_pairs <- bind_rows(
-  twas_ddp |>
-    summarise(has_coloc_hit = any(coloc_pp >= 0.8),
-              .by = c(trait, gene_id)) |>
-    mutate(phenos = "DDP", .before = 1),
-  twas_kdp |>
-    summarise(has_coloc_hit = any(coloc_pp >= 0.8),
-              .by = c(trait, gene_id)) |>
-    mutate(phenos = "KDP", .before = 1),
-) |>
-  left_join(genes, by = "gene_id", relationship = "many-to-one") |>
-  mutate(nearby_hit = has_nearby_hits(chrom, start, end, 0),
-         .by = c(phenos, trait))
+  genotype_colors <- set_names(
+    c("#2c7fb8", "#6d6d6d", "#d95f0e")[seq_along(genotype_levels)],
+    genotype_levels
+  )
+  
+  genotype_labels <- genotype_counts |>
+    mutate(label = str_glue("{genotype_label} (n={n})")) |>
+    with(set_names(label, genotype_label))
 
-frac_pairs <- twas_pairs |>
-  summarise(frac_nearby_hit = mean(nearby_hit),
-            ci95_low = frac_nearby_hit - qnorm(0.975) * sd(nearby_hit) / sqrt(n()),
-            ci95_hi = frac_nearby_hit + qnorm(0.975) * sd(nearby_hit) / sqrt(n()),
-            .by = c(phenos, gene_biotype))
+  coverage_plot <- coverage_summary |>
+    ggplot(aes(
+      x = bin,
+      y = covg_mean,
+      color = genotype_label,
+      fill = genotype_label,
+      group = genotype_group
+    )) +
+    geom_line(linewidth = 0.5) +
+    scale_color_manual(values = genotype_colors, labels = genotype_labels) +
+    scale_fill_manual(values = genotype_colors) +
+    theme_bw() +
+    theme(
+      axis.text = element_text(color = "black"),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      legend.key.height = unit(10, "pt"),
+      legend.position = "inside",
+      legend.position.inside = c(0.8, 0.7),
+      legend.title = element_blank(),
+      panel.grid = element_blank(),
+    ) +
+    xlab("Bins along gene start to end") +
+    ylab("log10(coverage+1)") +
+    labs(
+      title = str_glue("{gene_name} in {tissue} grouped by {variant_label(variant_id)}")
+    )
+  
+  coverage_plot
+}
 
-frac_pairs |>
-  mutate(gene_biotype = str_replace(gene_biotype, "_", "-") |> fct_rev(),
-         phenos = phenos) |>
-  ggplot(aes(x = phenos, y = frac_nearby_hit, ymin = ci95_low, ymax = ci95_hi, fill = phenos)) +
-  facet_wrap(~gene_biotype) +
-  geom_col(width = 0.5, show.legend = FALSE) +
-  geom_errorbar(width = 0.25) +
-  expand_limits(y = 1) +
-  scale_y_continuous(expand = c(0, 0), labels = scales::label_percent()) +
-  scale_fill_manual(values = pheno_colors) +
-  theme_classic() +
-  theme(
-    axis.text = element_text(color = "black"),
-  ) +
-  xlab("xTWAS phenotypes") +
-  ylab("Gene-trait pairs w/ nearby\nsame-trait TWAS hit")
+plots <- pmap(examples, plot_example)
 
-ggsave("figures/figureS6.png", width = 3.5, height = 3, device = png)
+combined_plot <- wrap_plots(plots, ncol = 1) +
+  plot_annotation(tag_levels = "a") &
+  theme(plot.tag = element_text(face = "bold"))
 
-twas_pairs |>
-  summarise(fraction = mean(nearby_hit),
-            .by = c(phenos, gene_biotype))
+if (interactive()) {
+  print(combined_plot)
+}
+
+output_dir <- Sys.getenv("FIGURES_DIR", unset = "figures")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+ggsave(
+  file.path(output_dir, "figureS6.png"),
+  width = 8,
+  height = 8,
+  device = png
+)

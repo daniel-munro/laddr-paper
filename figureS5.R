@@ -1,7 +1,8 @@
-## Additional colocalization to xQTL ratios
+## MAJIQ retained intron matches
 
 library(tidyverse)
 library(patchwork)
+library(scales)
 
 modalities <- c(
   expression = "Expression",
@@ -10,7 +11,7 @@ modalities <- c(
   alt_TSS = "Alt. TSS",
   alt_polyA = "Alt. polyA",
   stability = "RNA stability",
-  latent_residual = "Residual DD"
+  latent_residual = "Latent (residual)"
 )
 
 modality_colors <- c(
@@ -20,103 +21,128 @@ modality_colors <- c(
   `Alt. TSS` = "#896090",
   `Alt. polyA` = "#d97f26",
   `RNA stability` = "#ddb23c",
-  `Residual DD` = "#1ce6df"
+  `Latent (residual)` = "#1ce6df"
 )
 
-qtls_hybrid <- read_tsv(
-  "data/processed/gtex-residual-cross.qtls.tsv.gz",
-  col_types = "ccicccd"
+match_group_colors <- c(modality_colors, `Multiple modalities` = "#7a4517", None = "#cccccc")
+
+summary_metrics <- read_tsv("data/majiq/summary.tsv", show_col_types = FALSE) |>
+  mutate(value = as.integer(value))
+
+retained_introns <- summary_metrics |>
+  filter(metric == "retained_introns") |>
+  pull(value)
+
+laddr_matches <- read_tsv("data/majiq/high_correlation_ir_laddr.tsv.gz", show_col_types = FALSE) |>
+  transmute(
+    majiq_ir_id,
+    phenotype_id = paste0("latent_residual:", phenotype_id),
+    gene_id = laddr_gene_id,
+    modality = "latent_residual"
+  )
+
+kdp_matches <- read_tsv("data/majiq/high_correlation_ir_kdp.tsv.gz", show_col_types = FALSE) |>
+  transmute(
+    majiq_ir_id,
+    phenotype_id,
+    gene_id = phenotype_gene_id,
+    modality = str_extract(phenotype_id, "^[^:]+")
+  )
+
+ir_matches <- bind_rows(laddr_matches, kdp_matches) |>
+  mutate(modality_label = modalities[modality])
+
+single_modality_counts <- ir_matches |>
+  distinct(majiq_ir_id, modality_label) |>
+  summarise(
+    n_modalities = n(),
+    modality_label = first(sort(modality_label)),
+    .by = majiq_ir_id
+  ) |>
+  mutate(
+    match_group = if_else(n_modalities == 1, modality_label, "Multiple modalities")
+  ) |>
+  count(match_group, name = "retained_introns")
+
+match_breakdown <- bind_rows(
+  single_modality_counts,
+  tibble(
+    match_group = "None",
+    retained_introns = retained_introns - n_distinct(ir_matches$majiq_ir_id)
+  )
 ) |>
-  mutate(modality = factor(modalities[modality], levels = rev(modalities)))
+  mutate(
+    match_group = match_group |>
+      fct_reorder(-retained_introns) |>
+      fct_relevel("Multiple modalities", "None", after = Inf)
+  ) |>
+  complete(match_group, fill = list(retained_introns = 0))
 
-twas <- bind_rows(
-  read_tsv("data/processed/gtex-residual.twas_hits.tsv.gz", col_types = "cccc--dd") |>
-    mutate(modality = "latent_residual", .after = "tissue"),
-  read_tsv("data/processed/gtex-pantry.twas_hits.tsv.gz", col_types = "ccccc--dd")
-)
+phenotype_totals <- read_tsv(
+  "data/phenos/geuvadis-residual/geuvadis-residual-Geuvadis-cross_latent.phenotype_groups.txt.gz",
+  col_names = c("phenotype_id", "gene_id"),
+  show_col_types = FALSE
+) |>
+  mutate(modality = str_extract(phenotype_id, "^[^:]+")) |>
+  count(modality, name = "total_phenotypes")
 
-####################
-## Panels a, b, c ## Coloc TWAS genes to xGenes ratio
-####################
+phenotype_matches <- ir_matches |>
+  summarise(matched_genes = n_distinct(gene_id), .by = modality)
 
-coloc_genes <- twas |>
-  filter(coloc_pp > 0.8) |>
-  distinct(tissue, modality, gene_id) |>
-  count(tissue, modality, name = "coloc_n_genes") |>
-  mutate(modality = factor(modalities[modality], levels = rev(modalities)))
+phenotype_counts <- phenotype_totals |>
+  left_join(phenotype_matches, by = "modality") |>
+  mutate(
+    matched_genes = replace_na(matched_genes, 0L),
+    modality_label = modalities[modality] |> fct_reorder(-matched_genes)
+  )
 
-coloc_genes_xgene_ratio <- qtls_hybrid |>
-  distinct(tissue, modality, gene_id) |>
-  count(tissue, modality, name = "n_xgenes") |>
-  full_join(coloc_genes, by = c("tissue", "modality"), relationship = "one-to-one") |>
-  mutate(coloc_xgene_ratio = coloc_n_genes / n_xgenes)
+p_ir <- match_breakdown |>
+  mutate(match_group = fct_rev(match_group)) |>
+  ggplot(aes(x = "All retained introns", y = retained_introns, fill = match_group)) +
+  geom_col(width = 0.55, color = "black", linewidth = 0.25) +
+  scale_fill_manual(values = match_group_colors) +
+  scale_y_continuous(
+    labels = label_number(big.mark = ","),
+    expand = expansion(mult = c(0, 0.04))
+  ) +
+  theme_bw() +
+  theme(
+    axis.text = element_text(color = "black"),
+    legend.key.size = unit(9, "pt"),
+    legend.text = element_text(size = 7),
+    legend.title = element_text(size = 9, margin = margin(b = 2, unit = "pt")),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+  xlab(NULL) +
+  ylab("MAJIQ retained introns") +
+  labs(fill = "KDP/rDDP match")
 
-p1 <- coloc_genes_xgene_ratio |>
-  ggplot(aes(x = coloc_xgene_ratio, y = modality, fill = modality)) +
-  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
-  scale_fill_manual(values = modality_colors) +
-  theme_classic() +
-  xlab("Genes w. colocalizing TWAS hits / xGenes") +
-  ylab("Modality")
+p_phenotypes <- phenotype_counts |>
+  ggplot(aes(x = modality_label, y = matched_genes, fill = modality_label)) +
+  geom_col(
+    width = 0.72,
+    color = "black",
+    linewidth = 0.25
+  ) +
+  scale_fill_manual(values = modality_colors, guide = "none") +
+  scale_y_continuous(
+    labels = label_number(big.mark = ","),
+    expand = expansion(mult = c(0, 0.04))
+  ) +
+  theme_bw() +
+  theme(
+    axis.text = element_text(color = "black"),
+    axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+  xlab(NULL) +
+  ylab("Genes with IR-matched phenotypes")
 
-p2 <- coloc_genes_xgene_ratio |>
-  ggplot(aes(x = coloc_n_genes / 1000, y = modality, fill = modality)) +
-  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
-  scale_fill_manual(values = modality_colors) +
-  theme_classic() +
-  xlab("Genes w. colocalizing TWAS hits (×1000)") +
-  ylab(NULL)
+p_ir + p_phenotypes +
+  plot_layout(widths = c(1, 2)) +
+  plot_annotation(tag_levels = "a") &
+  theme(plot.tag = element_text(face = "bold"))
 
-p3 <- coloc_genes_xgene_ratio |>
-  ggplot(aes(x = n_xgenes / 1000, y = modality, fill = modality)) +
-  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
-  scale_fill_manual(values = modality_colors) +
-  theme_classic() +
-  xlab("xGenes (×1000)") +
-  ylab(NULL)
-
-####################
-## Panels d, e, f ## Top coloc TWAS to top xQTL ratio
-####################
-
-coloc_top <- twas |>
-  filter(coloc_pp > 0.8) |>
-  slice_min(n = 1, order_by = twas_p, by = c("tissue", "trait", "gene_id")) |>
-  count(tissue, modality, name = "coloc_top_n") |>
-  mutate(modality = factor(modalities[modality], levels = rev(modalities)))
-
-coloc_top_qtl_ratio <- qtls_hybrid |>
-  filter(rank == 1) |>
-  count(tissue, modality, name = "n_top_qtls") |>
-  full_join(coloc_top, by = c("tissue", "modality"), relationship = "one-to-one") |>
-  mutate(coloc_top_qtl_ratio = coloc_top_n / n_top_qtls)
-
-p4 <- coloc_top_qtl_ratio |>
-  ggplot(aes(x = coloc_top_qtl_ratio, y = modality, fill = modality)) +
-  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
-  scale_fill_manual(values = modality_colors) +
-  theme_classic() +
-  xlab("Top colocalizing TWAS hits / Top xQTLs") +
-  ylab("Modality")
-
-p5 <- coloc_top_qtl_ratio |>
-  ggplot(aes(x = coloc_top_n / 1000, y = modality, fill = modality)) +
-  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
-  scale_fill_manual(values = modality_colors) +
-  theme_classic() +
-  xlab("Top colocalizing TWAS hits (×1000)") +
-  ylab(NULL)
-
-p6 <- coloc_top_qtl_ratio |>
-  ggplot(aes(x = n_top_qtls / 1000, y = modality, fill = modality)) +
-  geom_boxplot(show.legend = FALSE, outlier.size = 0.3, linewidth = 0.4, median.linewidth = 0.5) +
-  scale_fill_manual(values = modality_colors) +
-  theme_classic() +
-  xlab("Top xQTLs (×1000)") +
-  ylab(NULL)
-
-(p1 + p2 + p3) / plot_spacer() / (p4 + p5 + p6) +
-  plot_layout(heights = c(6, 1, 6)) +
-  plot_annotation(tag_levels = "a")
-
-ggsave("figures/figureS5.png", width = 10, height = 4, device = png)
+ggsave("figures/figureS5.png", width = 6, height = 4, device = png)
