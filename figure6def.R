@@ -74,4 +74,4 @@ p3 <- coloc_qtl_ratio |>
 
 p1 + p2 + p3
 
-ggsave("figures/figure5/figure5def.png", width = 9, height = 1.7, device = png)
+ggsave("figures/figure6/figure6def.png", width = 9, height = 1.7, device = png)

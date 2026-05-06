@@ -1,10 +1,8 @@
-# Hybrid phenotype set TWAS
+## MAJIQ retained intron matches
 
 library(tidyverse)
-
-#############
-## Panel e ## Explicit + residual latent TWAS overlap
-#############
+library(patchwork)
+library(scales)
 
 modalities <- c(
   expression = "Expression",
@@ -13,10 +11,9 @@ modalities <- c(
   alt_TSS = "Alt. TSS",
   alt_polyA = "Alt. polyA",
   stability = "RNA stability",
-  latent = "Residual DD"
+  latent_residual = "Latent (residual)"
 )
 
-# Use muted version of Pantry colors to deemphasize what is already known
 modality_colors <- c(
   Expression = "#bf4042",
   `Isoform ratio` = "#6a90cd",
@@ -24,95 +21,126 @@ modality_colors <- c(
   `Alt. TSS` = "#896090",
   `Alt. polyA` = "#d97f26",
   `RNA stability` = "#ddb23c",
-  `Residual DD` = "#1ce6df"
+  `Latent (residual)` = "#1ce6df"
 )
 
-categories <- read_tsv("data/pantry/geuvadis/twas/gwas_metadata.txt",
-                       col_types = cols(Tag = "c", Category = "c", .default = "-")) |>
-  mutate(Category = fct_lump_min(Category, 10)) |>
-  deframe()
+match_group_colors <- c(modality_colors, `Multiple modalities` = "#7a4517", None = "#cccccc")
 
-twas_pantry <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "cccc--dd")
+summary_metrics <- read_tsv("data/majiq/summary.tsv", show_col_types = FALSE) |>
+  mutate(value = as.integer(value))
 
-twas_resid <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "ccc--dd")
+retained_introns <- summary_metrics |>
+  filter(metric == "retained_introns") |>
+  pull(value)
 
-twas_panres <- bind_rows(
-  twas_pantry |>
-    select(trait, gene_id, modality, twas_p),
-  twas_resid |>
-    mutate(modality = "latent") |>
-    select(trait, gene_id, modality, twas_p),
-) |>
-  mutate(category = categories[trait] |> fct_infreq(),
-         modality = factor(modalities[modality], levels = modalities))
-
-twas_panres_overlap <- twas_panres |>
-  mutate(modality_type = if_else(modality == "Residual DD", "latent", "explicit")) |>
-  distinct(trait, gene_id, modality_type) |>
-  summarise(
-    modality_hits = str_c(sort(unique(modality_type)), collapse = "_"),
-    .by = c(trait, gene_id)
-  ) |>
-  mutate(
-    modality_hits = c(explicit = "KDP only",
-                      explicit_latent = "KDP & rDDP",
-                      latent = "rDDP only")[modality_hits] |>
-      fct_relevel("KDP only", "KDP & rDDP", "rDDP only"),
-    category = fct_infreq(categories[trait]),
+laddr_matches <- read_tsv("data/majiq/high_correlation_ir_laddr.tsv.gz", show_col_types = FALSE) |>
+  transmute(
+    majiq_ir_id,
+    phenotype_id = paste0("latent_residual:", phenotype_id),
+    gene_id = laddr_gene_id,
+    modality = "latent_residual"
   )
 
-twas_panres_overlap |>
-  count(category, modality_hits) |>
-  ggplot(aes(x = category, y = n / 1000, fill = modality_hits)) +
-  geom_col(position = position_stack(reverse = TRUE), width = 0.7, color = "black") +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.01))) +
-  scale_fill_manual(values = c("white", "gray", "#444444")) +
-  coord_flip() +
-  theme_classic() +
+kdp_matches <- read_tsv("data/majiq/high_correlation_ir_kdp.tsv.gz", show_col_types = FALSE) |>
+  transmute(
+    majiq_ir_id,
+    phenotype_id,
+    gene_id = phenotype_gene_id,
+    modality = str_extract(phenotype_id, "^[^:]+")
+  )
+
+ir_matches <- bind_rows(laddr_matches, kdp_matches) |>
+  mutate(modality_label = modalities[modality])
+
+single_modality_counts <- ir_matches |>
+  distinct(majiq_ir_id, modality_label) |>
+  summarise(
+    n_modalities = n(),
+    modality_label = first(sort(modality_label)),
+    .by = majiq_ir_id
+  ) |>
+  mutate(
+    match_group = if_else(n_modalities == 1, modality_label, "Multiple modalities")
+  ) |>
+  count(match_group, name = "retained_introns")
+
+match_breakdown <- bind_rows(
+  single_modality_counts,
+  tibble(
+    match_group = "None",
+    retained_introns = retained_introns - n_distinct(ir_matches$majiq_ir_id)
+  )
+) |>
+  mutate(
+    match_group = match_group |>
+      fct_reorder(-retained_introns) |>
+      fct_relevel("Multiple modalities", "None", after = Inf)
+  ) |>
+  complete(match_group, fill = list(retained_introns = 0))
+
+phenotype_totals <- read_tsv(
+  "data/phenos/geuvadis-residual/geuvadis-residual-Geuvadis-cross_latent.phenotype_groups.txt.gz",
+  col_names = c("phenotype_id", "gene_id"),
+  show_col_types = FALSE
+) |>
+  mutate(modality = str_extract(phenotype_id, "^[^:]+")) |>
+  count(modality, name = "total_phenotypes")
+
+phenotype_matches <- ir_matches |>
+  summarise(matched_genes = n_distinct(gene_id), .by = modality)
+
+phenotype_counts <- phenotype_totals |>
+  left_join(phenotype_matches, by = "modality") |>
+  mutate(
+    matched_genes = replace_na(matched_genes, 0L),
+    modality_label = modalities[modality] |> fct_reorder(-matched_genes)
+  )
+
+match_breakdown |>
+  mutate(match_group = fct_rev(match_group)) |>
+  ggplot(aes(x = "All retained introns", y = retained_introns, fill = match_group)) +
+  geom_col(width = 0.55, color = "black", linewidth = 0.25) +
+  scale_fill_manual(values = match_group_colors) +
+  scale_y_continuous(
+    labels = label_number(big.mark = ","),
+    expand = expansion(mult = c(0, 0.04))
+  ) +
+  theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
-    # axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
-    legend.position = "inside",
-    legend.position.inside = c(0.8, 0.7),
     legend.key.size = unit(9, "pt"),
+    legend.box.spacing = unit(0, "pt"),
     legend.text = element_text(size = 7),
-    legend.title = element_text(size = 9),
-    panel.grid = element_blank(),
+    legend.title = element_text(size = 9, margin = margin(b = 2, unit = "pt")),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank()
   ) +
-  labs(fill = "Gene's xTWAS\nhits include") +
-  xlab("Trait category") +
-  ylab("Gene-trait pairs with TWAS hit(s) (×1000)")
+  xlab(NULL) +
+  ylab("MAJIQ retained introns") +
+  labs(fill = "KDP/rDDP match")
 
-ggsave("figures/figure4/figure4e.png", width = 5, height = 2, device = png)
+ggsave("figures/figure4/figure4e.png", width = 2.5, height = 4, device = png)
 
-#############
-## Panel f ## Explicit + residual latent TWAS top hits
-#############
-
-twas_panres_tophit <- twas_panres |>
-  slice_min(twas_p, n = 1, with_ties = FALSE, by = c(trait, gene_id))
-
-twas_panres_tophit |>
-  count(category, modality) |>
-  ggplot(aes(x = category, y = n / 1000, fill = modality)) +
-  geom_col(position = position_stack(reverse = TRUE), width = 0.7) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.01))) +
-  scale_fill_manual(values = modality_colors) +
-  coord_flip() +
-  theme_classic() +
+phenotype_counts |>
+  ggplot(aes(x = modality_label, y = matched_genes, fill = modality_label)) +
+  geom_col(
+    width = 0.72,
+    color = "black",
+    linewidth = 0.25
+  ) +
+  scale_fill_manual(values = modality_colors, guide = "none") +
+  scale_y_continuous(
+    labels = label_number(big.mark = ","),
+    expand = expansion(mult = c(0, 0.04))
+  ) +
+  theme_bw() +
   theme(
     axis.text = element_text(color = "black"),
-    # axis.text.x = element_text(hjust = 1, vjust = 1, angle = 45),
-    legend.margin = margin_auto(0),
-    legend.position = "inside",
-    legend.position.inside = c(0.8, 0.6),
-    legend.key.size = unit(8, "pt"),
-    legend.text = element_text(size = 7),
-    legend.title = element_text(size = 9),
-    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank()
   ) +
-  labs(fill = "Modality of\npair's top hit") +
-  xlab("Trait category") +
-  ylab("Gene-trait pairs with TWAS hit(s) (×1000)")
+  xlab(NULL) +
+  ylab("Genes with IR-matched phenotypes")
 
-ggsave("figures/figure4/figure4f.png", width = 5, height = 2, device = png)
+ggsave("figures/figure4/figure4f.png", width = 2.3, height = 4, device = png)

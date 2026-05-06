@@ -95,7 +95,7 @@ enrich |>
   ylab(NULL) +
   labs(subtitle = "All xQTLs", color = "Modality", shape = "Modality")
 
-ggsave("figures/figure5/figure5b.png", width = 4.5, height = 3.5, device = png)
+ggsave("figures/figure6/figure6b.png", width = 4.5, height = 3.5, device = png)
 
 #############
 ## Panel c ## xQTLs for tissue-phenotype pairs with colocalizing TWAS hits
@@ -131,4 +131,4 @@ enrich_coloc |>
   ylab(NULL) +
   labs(subtitle = "xQTLs for RNA phenotypes with colocalizing\nTWAS hits", color = "Modality", shape = "Modality")
 
-ggsave("figures/figure5/figure5c.png", width = 4.5, height = 3.6, device = png)
+ggsave("figures/figure6/figure6c.png", width = 4.5, height = 3.6, device = png)
