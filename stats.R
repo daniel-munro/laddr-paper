@@ -146,10 +146,11 @@ qtlrep <- read_tsv(
 ) |>
   mutate(geuvadis_signif = geuvadis_pval_nominal < geuvadis_pval_nominal_threshold)
 
-# "For each GTEx LCL DDP xQTL lead variant, we examined the association for the same DDP-variant pair in Geuvadis, observing that 89% of all pairs had the same effect direction (slope sign), with slopes correlating at Pearson r=0.67."
+# "For each GTEx LCL DDP xQTL lead variant, we examined the association for the same DDP-variant pair in Geuvadis, observing that 89% of the 15,871 pairs had the same effect direction (slope sign), with slopes correlating at Pearson r=0.67."
 
 qtlrep |>
   with(mean(gtex_slope * geuvadis_slope > 0))
+nrow(qtlrep)
 
 qtlrep |>
   with(cor(gtex_slope, geuvadis_slope))
@@ -263,7 +264,7 @@ qtls_geuv |>
 
 ###
 
-#  In every case, holding out one modality increased the number of latent residual phenotypes, resulting in a similar total number of independent cis-QTLs
+#  In every case, holding out one modality increased the number of rDDPs in compensation, yielding a similar total number of independent cis-QTLs
 
 qtls_held_out <- read_tsv(
   "data/processed/held_out-geuvadis.qtls.tsv.gz", col_types = "ccccdci"
@@ -272,6 +273,22 @@ qtls_held_out <- read_tsv(
 qtls_held_out |>
   filter(modality == "latent_residual") |>
   count(held_out, sort = TRUE)
+
+# 
+
+held_out_coloc_summary <- read_tsv(
+  "data/held_out/summary_by_modality.tsv",
+  col_types = "c-ii----i"
+)
+
+held_out_coloc_summary |>
+  summarise(
+    n_baseline_coloc_cs = sum(n_baseline_coloc_cs),
+    n_held_out_coloc_cs = sum(n_held_out_coloc_cs),
+    estimated_recaptured_excess = sum(estimated_recaptured_excess),
+  )
+
+held_out_coloc_summary
 
 ###
 
@@ -291,6 +308,10 @@ read_tsv("data/majiq/high_correlation_ir_kdp.tsv.gz", show_col_types = FALSE) |>
   mutate(modality = str_extract(phenotype_id, "^[^:]+")) |>
   distinct(modality, ir_gene_id) |>
   count(modality, sort = TRUE)
+
+# Of the IR-rDDP matches, 1,205 had xQTLs and 623 had xTWAS hits.
+
+read_tsv("data/majiq/summary.tsv", col_types = "ci")
 
 ###
 
@@ -371,6 +392,20 @@ twas_examples <- tribble(
   "PNCREAS", "ENSG00000136267", "MAGIC_FastingGlucose",
   "BRNACC",  "ENSG00000239268", "UKB_1200_Sleeplessness_or_insomnia",
 )
+
+twas_examples |>
+  reframe(
+    read_tsv(
+      str_glue("data/twas/gtextcga-full/twas_hits.gtextcga-full-{tissue}.tsv.gz"),
+      col_types = "ccccccccccccccccccdccccc"
+    ) |>
+      filter(TRAIT == trait) |>
+      mutate(gene = str_split_i(ID, "__", i = 1)) |>
+      filter(gene == gene_id) |>
+      slice_min(TWAS.P, n = 1, with_ties = FALSE) |>
+      select(BEST.GWAS.ID, EQTL.ID),
+    .by = c(tissue, gene_id, trait)
+  )
 
 twas_example_hits <- twas_gtex_ddp |>
   semi_join(twas_examples, by = c("tissue", "gene_id", "trait")) |>
