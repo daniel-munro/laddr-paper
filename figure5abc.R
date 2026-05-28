@@ -29,14 +29,22 @@ modality_colors <- c(
   `Residual DD` = "#1ce6df"
 )
 
-categories <- read_tsv("data/pantry/geuvadis/twas/gwas_metadata.txt",
-                       col_types = cols(Tag = "c", Category = "c", .default = "-")) |>
+categories <- read_tsv(
+  "data/pantry/geuvadis/twas/gwas_metadata.txt",
+  col_types = cols(Tag = "c", Category = "c", .default = "-")
+) |>
   mutate(Category = fct_lump_min(Category, 10)) |>
   deframe()
 
-twas_pantry <- read_tsv("data/processed/geuvadis-pantry.twas_hits.tsv.gz", col_types = "cccc--dd")
+twas_pantry <- read_tsv(
+  "data/processed/geuvadis-pantry.twas_hits.tsv.gz",
+  col_types = "cccc--dd"
+)
 
-twas_resid <- read_tsv("data/processed/geuvadis-residual.twas_hits.tsv.gz", col_types = "ccc--dd")
+twas_resid <- read_tsv(
+  "data/processed/geuvadis-residual.twas_hits.tsv.gz",
+  col_types = "ccc--dd"
+)
 
 twas_panres <- bind_rows(
   twas_pantry |>
@@ -49,7 +57,9 @@ twas_panres <- bind_rows(
          modality = factor(modalities[modality], levels = modalities))
 
 twas_panres_overlap <- twas_panres |>
-  mutate(modality_type = if_else(modality == "Residual DD", "latent", "explicit")) |>
+  mutate(
+    modality_type = if_else(modality == "Residual DD", "latent", "explicit")
+  ) |>
   distinct(trait, gene_id, modality_type) |>
   summarise(
     modality_hits = str_c(sort(unique(modality_type)), collapse = "_"),
@@ -127,12 +137,19 @@ traits <- read_tsv("data/finngen_coloc/finngen_R12_manifest.tsv", col_types = "c
   mutate(
     category = category |>
       str_replace("^[XVI]+ ", "") |>
-      str_replace(" \\(.+\\)$", "")
+      str_replace(" \\(.+\\)$", "") |>
+      str_replace("behaviour", "behavior")
   )
 
 finngen_coloc <- read_tsv(
   "data/finngen_coloc/coloc.significant.tsv.gz",
-  col_types = cols(phenotype_id = "c", phenotype_class = "c", finngen_trait = "c", clpp = "d", .default = "-")
+  col_types = cols(
+    phenotype_id = "c",
+    phenotype_class = "c",
+    finngen_trait = "c",
+    clpp = "d",
+    .default = "-"
+  )
 ) |>
   filter(clpp >= 0.01) |>
   mutate(

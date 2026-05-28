@@ -16,6 +16,7 @@ trait_names <- read_tsv(
   col_types = cols(Tag = "c", Phenotype = "c", .default = "-")
 ) |>
   select(Tag, Phenotype) |>
+  mutate(Phenotype = str_replace(Phenotype, "Triglycerids", "Triglycerides")) |>
   tibble::deframe()
 
 variant_label <- function(variant_id) {
