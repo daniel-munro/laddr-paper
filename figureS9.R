@@ -75,6 +75,6 @@ p2 <- qtl_counts |>
   xlab("xQTLs (×1000), GTEx models") +
   ylab("xQTLs (×1000), GTEx + TCGA models")
 
-p1 + p2 + plot_annotation(tag_levels = "a") & theme(plot.tag = element_text(face = "bold"))
+p1 + p2 + plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(face = "bold"))
 
 ggsave("figures/figureS9.png", width = 7.5, height = 3.75, device = png)

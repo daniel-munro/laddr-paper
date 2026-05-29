@@ -270,7 +270,7 @@ plot_example <- function(tissue, gene_id, variant_id, trait_id) {
 plots <- pmap(examples, plot_example)
 
 combined_plot <- wrap_plots(plots, ncol = 1) +
-  plot_annotation(tag_levels = "a", theme = theme(plot.margin = margin(0, 0, 0, 0))) &
+  plot_annotation(tag_levels = "A", theme = theme(plot.margin = margin(0, 0, 0, 0))) &
   theme(
     plot.margin = margin_auto(5, unit = "pt"),
     plot.tag = element_text(face = "bold", margin = margin(0, 1, 0, 0, unit = "pt"))

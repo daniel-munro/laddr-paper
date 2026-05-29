@@ -189,7 +189,8 @@ plot_locus_example <- function(example) {
     xticks = TRUE,
     xlab = str_glue("{info$region_chr} position (Mb)"),
     showExons = TRUE,
-    maxrows = 5,
+    maxrows = NULL,
+    cex.text = 0.6,
     highlight = info$gene_label,
     highlight_col = "red3",
     blanks = "fill",
@@ -200,14 +201,14 @@ plot_locus_example <- function(example) {
     scale_x_continuous(expand = 0)
 
   p_qtl / p_fg / p_genes +
-    plot_layout(heights = c(2.1, 2.1, 1.4))
+    plot_layout(heights = c(1, 1, 1))
 }
 
 locus_plots <- map(as.character(examples$example_id), plot_locus_example)
 locus_panels <- map(locus_plots, wrap_elements)
 
 combined_plot <- wrap_plots(locus_panels, nrow = 2) +
-  plot_annotation(tag_levels = "a") &
+  plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold"))
 
 combined_plot
@@ -217,7 +218,8 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 ggsave(
   file.path(output_dir, "figureS6.png"),
-  width = 13,
+  width = 12,
   height = 10,
   device = png
 )
+ 

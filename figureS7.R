@@ -117,6 +117,6 @@ p6 <- coloc_top_qtl_ratio |>
 
 (p1 + p2 + p3) / plot_spacer() / (p4 + p5 + p6) +
   plot_layout(heights = c(6, 1, 6)) +
-  plot_annotation(tag_levels = "a")
+  plot_annotation(tag_levels = "A")
 
 ggsave("figures/figureS7.png", width = 10, height = 4, device = png)

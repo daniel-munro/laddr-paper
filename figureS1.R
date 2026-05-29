@@ -135,7 +135,7 @@ p2
 
 p1 / p2 +
   plot_layout(heights = c(3, 2)) +
-  plot_annotation(tag_levels = "a") &
+  plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold"))
 
 ggsave("figures/figureS1.png", width = 8, height = 7.5, device = png)
