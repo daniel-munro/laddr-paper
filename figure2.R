@@ -103,8 +103,8 @@ ggplot(phenos_corr, aes(x = pantry_pheno, y = PC, fill = rho_abs)) +
     panel.grid = element_blank(),
     plot.margin = margin_auto(3),
   ) +
-  xlab(str_glue("Knowledge-driven phenotypes for {gene_name}")) +
-  ylab(str_glue("Data-driven phenotypes for {gene_name}")) +
+  xlab(bquote("Knowledge-driven phenotypes for " * italic(.(gene_name)))) +
+  ylab(bquote("Data-driven phenotypes for " * italic(.(gene_name)))) +
   labs(fill = expression("|"*rho*"|"))
 
 ggsave("figures/figure2/figure2a.png", width = 4, height = 4, device = png)
@@ -209,4 +209,3 @@ p4 <- hsq_pantry |>
 p3 + p4 + plot_layout(widths = c(9, 6))
 
 ggsave("figures/figure2/figure2c.png", width = 3.25, height = 4, device = png)
-

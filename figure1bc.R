@@ -134,7 +134,7 @@ p1 <- iso_bins |>
   ) +
   xlab("Isoforms scaled to align with coverage bins") +
   ylab(NULL) +
-  ggtitle(gene_name)
+  ggtitle(bquote(italic(.(gene_name))))
 
 p2 <- covg |>
   ggplot(aes(x = bin, y = covg_50th, ymin = covg_25th, ymax = covg_75th)) +
@@ -231,7 +231,7 @@ p5 <- ggplot(exons, aes(xmin = start, xmax = end + 2e-3, ymin = 0, ymax = 2)) +
     panel.grid = element_blank(),
     panel.border = element_blank(),
   ) +
-  xlab(str_glue("{gene_name} location")) +
+  xlab(bquote(italic(.(gene_name)) ~ "location")) +
   ylab(NULL)
 
 p6 <- xqtl |>
@@ -251,7 +251,7 @@ p6 <- xqtl |>
   ) +
   xlab(str_glue("{unique(xqtl$chrom)} position (Mb)")) +
   ylab(expression(-log[10]*" P")) +
-  ggtitle(str_glue("xQTL: {gene_name} {DDP}"))
+  ggtitle(bquote("xQTL: " * italic(.(gene_name)) ~ .(DDP)))
 
 p7 <- gwas |>
   mutate(pos = position / 1000000) |>
